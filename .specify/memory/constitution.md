@@ -1,25 +1,3 @@
-<!--
-Sync Impact Report
-Version change: 1.0.0 → 1.1.0
-Modified principles:
-  - I. Zero-Trust Strict Input Validation (normative wording normalized to MUST)
-  - II. Tenant Data Isolation (centralized enforcement, full collection coverage,
-    ownership checks, cross-tenant tests)
-  - III. Anti-XSS and Output Sanitization (render-time, post-edit, and raw-HTML rules)
-  - IV. File Upload Security & Resource Control (concrete file, MIME, upload, and
-    rate-limit controls)
-Added principles:
-  - V. Verified Security and Test-First Delivery (NON-NEGOTIABLE)
-Added sections:
-  - Security & Data Lifecycle
-  - Testing & Quality Gates
-Removed sections: none
-Follow-up TODOs: none
-Notes: Numeric limits are baseline defaults introduced to make controls testable.
-       They MUST remain configurable through environment settings, and changing a
-       default requires justification in the feature plan.
--->
-
 # Talas MVP Constitution
 
 ## Core Principles
@@ -124,12 +102,18 @@ All implementations MUST conform to the following workflow definitions:
     prompt-injection-resistant structure that delimits untrusted content, and
     model output MUST be validated against an expected schema before persistence.
 *   **Automatic Layout & Editing:** The system MUST initially apply corresponding
-    UI components (for example, tables and bulleted lists) to the AI output. The
-    generated lesson MUST open in an editor supporting standard Markdown syntax.
-    The editor MUST autosave, retain revision history, and use optimistic
-    concurrency so concurrent edits cannot silently overwrite each other. Manual
-    edits MUST be sanitized on save and MUST render identically in the final saved
-    lesson view.
+    UI components (for example, tables and bulleted lists) to the AI output. A
+    generated lesson MUST open in a rendered, read-only lesson view that is
+    optimized for reading and browsing, with an explicit edit affordance at the
+    top of the view; the editor MUST be reached through that affordance and MUST
+    itself support standard Markdown syntax. The editor MUST autosave, retain
+    revision history, and use optimistic concurrency so concurrent edits cannot
+    silently overwrite each other. Manual edits MUST be sanitized on save and
+    MUST render identically in the final saved lesson view. Uploaded source
+    materials MUST remain downloadable by their owner through an
+    authenticated, tenant-scoped endpoint; downloads MUST use a
+    `Content-Disposition: attachment` response, MUST never serve quarantined or
+    deleted materials, and download attempts MUST be audited.
 *   **AI Chatbot Boundaries:** AI chat responses MUST be strictly grounded in the
     context of the user's saved lesson library, using vector search filtered by
     `userId`. Responses MUST cite the lesson or chunk they draw from. When no
@@ -143,6 +127,20 @@ All implementations MUST conform to the following workflow definitions:
 *   Access tokens MUST expire within 15 minutes, and refresh tokens MUST rotate,
     be stored hashed, and expire within 7 days. Logout, password change, and
     account disable MUST invalidate active sessions and refresh tokens.
+*   Access-token expiration MUST NOT lock out users who hold a valid, unrevoked
+    refresh token. A full-page, same-origin navigation from a signed-in browser
+    MAY silently renew the access token through an explicit renewal hop that
+    enforces the same rotation rules as the programmatic refresh endpoint
+    (single-use, hashed at rest, transactional, and reuse-detected). The
+    renewal hop MUST fail closed by clearing authentication cookies and landing
+    on the sign-in screen, and no routing path MAY be able to produce a
+    login-page redirect loop.
+*   Navigation-initiated state changes that the application itself originates
+    (today, only the silent session-renewal hop) MUST satisfy the CSRF
+    requirement through a short-lived, signed nonce issued by the application
+    and bound to the exact destination path, combined with
+    `Sec-Fetch-Site: same-origin` and `Sec-Fetch-Mode: navigate` validation,
+    failing closed to session termination.
 *   Password authentication MUST require at least 12 characters. Password reset
     tokens MUST be single-use, hashed at rest, and expire within 30 minutes.
 *   Cookie-based sessions MUST use `HttpOnly`, `Secure`, and `SameSite=Lax` or
@@ -243,4 +241,5 @@ this document. A violation MUST block merge until it is resolved or formally
 waived in writing by the maintainers with a stated rationale and expiry. The
 constitution MUST be reviewed at least quarterly and after any security incident.
 
-**Version**: 1.1.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-07
+**Version**: 1.3.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-09
+
