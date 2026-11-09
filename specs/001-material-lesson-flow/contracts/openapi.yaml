@@ -1,0 +1,1057 @@
+openapi: 3.1.0
+info:
+  title: Talas Walking Skeleton API
+  version: 1.0.0
+  description: |
+    Contract for the Account and Material-to-Lesson flow. All protected routes use
+    an HttpOnly access-token cookie. State-changing routes additionally require the
+    double-submit CSRF header. Errors use a single envelope with a correlation ID.
+servers:
+  - url: http://localhost:3000
+    description: Local development
+  - url: https://app.talas.example
+    description: Production
+tags:
+  - name: Auth
+  - name: Account
+  - name: Materials
+  - name: Lessons
+  - name: System
+
+paths:
+  /api/health:
+    get:
+      tags: [System]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    const: ok
+
+  /api/auth/csrf:
+    get:
+      tags: [Auth]
+      summary: Issue a CSRF token and matching cookie
+      security: []
+      responses:
+        "200":
+          description: CSRF token issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CsrfResponse"
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Create an account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Account created and verification email sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Verify an email address with a single-use token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyEmailRequest"
+      responses:
+        "200":
+          description: Email verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/auth/resend-verification:
+    post:
+      tags: [Auth]
+      summary: Resend the verification email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailRequest"
+      responses:
+        "202":
+          description: Verification email queued
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Sign in and receive session cookies
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Signed in
+          headers:
+            Set-Cookie:
+              description: Access, refresh, and CSRF cookies
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate the refresh token and issue a new access token
+      security:
+        - refreshCookie: []
+          csrfToken: []
+      responses:
+        "200":
+          description: Session refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: End the current session
+      security:
+        - cookieAuth: []
+          refreshCookie: []
+          csrfToken: []
+      responses:
+        "204":
+          description: Signed out
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request a password reset link
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailRequest"
+      responses:
+        "202":
+          description: Request accepted; response does not reveal whether the email exists
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Complete a password reset
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+      responses:
+        "200":
+          description: Password updated and active sessions invalidated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/me:
+    get:
+      tags: [Account]
+      summary: Return the current user
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/account/export:
+    get:
+      tags: [Account]
+      summary: Export the user's materials and lessons
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: ZIP archive of JSON metadata and Markdown lessons
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/account:
+    delete:
+      tags: [Account]
+      summary: Request account deletion
+      security:
+        - cookieAuth: []
+          csrfToken: []
+      responses:
+        "202":
+          description: Deletion queued; access ends immediately
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountDeletionRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Deletion already requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/materials/presign:
+    post:
+      tags: [Materials]
+      summary: Create an upload target
+      security:
+        - cookieAuth: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PresignRequest"
+      responses:
+        "201":
+          description: Presigned upload created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PresignResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/materials:
+    post:
+      tags: [Materials]
+      summary: Confirm an upload and enqueue processing
+      security:
+        - cookieAuth: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmMaterialRequest"
+      responses:
+        "202":
+          description: Upload confirmed and processing queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Material"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Upload already confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+    get:
+      tags: [Materials]
+      summary: List the current user's materials
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: Materials owned by the current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaterialList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/materials/{materialId}:
+    get:
+      tags: [Materials]
+      summary: Get one material
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/MaterialId"
+      responses:
+        "200":
+          description: Material owned by the current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Material"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Materials]
+      summary: Delete a material and its derived lesson
+      security:
+        - cookieAuth: []
+          csrfToken: []
+      parameters:
+        - $ref: "#/components/parameters/MaterialId"
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/materials/{materialId}/status:
+    get:
+      tags: [Materials]
+      summary: Poll processing status
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/MaterialId"
+      responses:
+        "200":
+          description: Current processing status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessingStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/materials/{materialId}/retry:
+    post:
+      tags: [Materials]
+      summary: Retry a failed processing job
+      security:
+        - cookieAuth: []
+          csrfToken: []
+      parameters:
+        - $ref: "#/components/parameters/MaterialId"
+      responses:
+        "202":
+          description: Retry queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Material"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Material is not in a retryable state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/lessons:
+    get:
+      tags: [Lessons]
+      summary: List the current user's lessons
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: Lessons owned by the current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/lessons/{lessonId}:
+    get:
+      tags: [Lessons]
+      summary: Get one lesson with content
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/LessonId"
+      responses:
+        "200":
+          description: Lesson owned by the current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lesson"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Lessons]
+      summary: Save lesson edits with optimistic concurrency
+      security:
+        - cookieAuth: []
+          csrfToken: []
+      parameters:
+        - $ref: "#/components/parameters/LessonId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LessonSaveRequest"
+      responses:
+        "200":
+          description: Lesson saved and revision appended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonSaveResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Version conflict; reload before saving
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [Lessons]
+      summary: Delete a lesson and its revisions
+      security:
+        - cookieAuth: []
+          csrfToken: []
+      parameters:
+        - $ref: "#/components/parameters/LessonId"
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/lessons/{lessonId}/revisions:
+    get:
+      tags: [Lessons]
+      summary: List revisions
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/LessonId"
+      responses:
+        "200":
+          description: Revision summaries, newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevisionList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/lessons/{lessonId}/revisions/{revisionId}/restore:
+    post:
+      tags: [Lessons]
+      summary: Restore a revision as a new version
+      security:
+        - cookieAuth: []
+          csrfToken: []
+      parameters:
+        - $ref: "#/components/parameters/LessonId"
+        - $ref: "#/components/parameters/RevisionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestoreRevisionRequest"
+      responses:
+        "200":
+          description: Revision restored as a new version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonSaveResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Version conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+      description: Short-lived HttpOnly access token (15 minutes).
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: refresh_token
+      description: HttpOnly rotating refresh token (7-day maximum).
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: Double-submit token matching the HttpOnly CSRF cookie.
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    LimitParam:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+    MaterialId:
+      name: materialId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-f0-9]{24}$"
+    LessonId:
+      name: lessonId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-f0-9]{24}$"
+    RevisionId:
+      name: revisionId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-f0-9]{24}$"
+
+  headers:
+    RetryAfter:
+      description: Seconds until the next allowed attempt
+      schema:
+        type: integer
+        minimum: 1
+    XRateLimitLimit:
+      description: Request limit for the current window
+      schema:
+        type: integer
+    XRateLimitRemaining:
+      description: Remaining requests in the current window
+      schema:
+        type: integer
+    XRateLimitReset:
+      description: Unix timestamp when the window resets
+      schema:
+        type: integer
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code:
+          type: string
+          examples: [validation_failed, unauthorized, not_found, rate_limited]
+        message:
+          type: string
+        correlationId:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldError"
+
+    FieldError:
+      type: object
+      required: [path, message]
+      properties:
+        path:
+          type: string
+        message:
+          type: string
+
+    User:
+      type: object
+      required: [id, email, emailVerified, createdAt]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        emailVerified:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    AuthSession:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+
+    CsrfResponse:
+      type: object
+      required: [csrfToken]
+      properties:
+        csrfToken:
+          type: string
+
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+          maxLength: 128
+
+    EmailRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    VerifyEmailRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 32
+          maxLength: 256
+
+    ResetPasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [token, password]
+      properties:
+        token:
+          type: string
+          minLength: 32
+          maxLength: 256
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+
+    PresignRequest:
+      type: object
+      additionalProperties: false
+      required: [filename, declaredMime, sizeBytes]
+      properties:
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+        declaredMime:
+          type: string
+          enum:
+            - application/pdf
+            - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+            - text/markdown
+            - text/plain
+        sizeBytes:
+          type: integer
+          minimum: 1
+          maximum: 26214400
+
+    PresignResponse:
+      type: object
+      required: [materialId, uploadUrl, method, headers, expiresAt]
+      properties:
+        materialId:
+          type: string
+        uploadUrl:
+          type: string
+          format: uri
+        method:
+          type: string
+          const: PUT
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+
+    ConfirmMaterialRequest:
+      type: object
+      additionalProperties: false
+      required: [materialId]
+      properties:
+        materialId:
+          type: string
+          pattern: "^[a-f0-9]{24}$"
+
+    Material:
+      type: object
+      required: [id, originalFilename, detectedMime, sizeBytes, status, createdAt]
+      properties:
+        id:
+          type: string
+        originalFilename:
+          type: string
+        detectedMime:
+          type: [string, "null"]
+        sizeBytes:
+          type: integer
+        status:
+          type: string
+          enum:
+            - awaiting_upload
+            - uploaded
+            - scanning
+            - queued
+            - processing
+            - ready
+            - failed
+            - quarantined
+            - deleted
+        scanResult:
+          type: string
+          enum: [pending, clean, infected, unavailable]
+        pageCount:
+          type: [integer, "null"]
+        failureCode:
+          type: [string, "null"]
+        failureMessage:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    MaterialList:
+      type: object
+      required: [data, page, limit, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Material"
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+
+    ProcessingStatus:
+      type: object
+      required: [materialId, status]
+      properties:
+        materialId:
+          type: string
+        status:
+          type: string
+          enum: [awaiting_upload, uploaded, scanning, queued, processing, ready, failed, quarantined]
+        attempts:
+          type: integer
+        failureCode:
+          type: [string, "null"]
+        failureMessage:
+          type: [string, "null"]
+        updatedAt:
+          type: string
+          format: date-time
+
+    LessonSummary:
+      type: object
+      required: [id, title, version, updatedAt]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        version:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+
+    Lesson:
+      type: object
+      required: [id, materialId, title, summary, contentMarkdown, version, updatedAt]
+      properties:
+        id:
+          type: string
+        materialId:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        contentMarkdown:
+          type: string
+        version:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    LessonList:
+      type: object
+      required: [data, page, limit, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/LessonSummary"
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+
+    LessonSaveRequest:
+      type: object
+      additionalProperties: false
+      required: [version, title, contentMarkdown]
+      properties:
+        version:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        contentMarkdown:
+          type: string
+          maxLength: 1048576
+
+    LessonSaveResponse:
+      type: object
+      required: [lesson, revision]
+      properties:
+        lesson:
+          $ref: "#/components/schemas/Lesson"
+        revision:
+          $ref: "#/components/schemas/Revision"
+
+    Revision:
+      type: object
+      required: [id, version, authorType, createdAt]
+      properties:
+        id:
+          type: string
+        version:
+          type: integer
+        authorType:
+          type: string
+          enum: [system, user]
+        createdAt:
+          type: string
+          format: date-time
+
+    RevisionList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Revision"
+
+    RestoreRevisionRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version:
+          type: integer
+          minimum: 1
+          description: Current lesson version expected by the client.
+
+    AccountDeletionRequest:
+      type: object
+      required: [status, requestedAt]
+      properties:
+        status:
+          type: string
+          enum: [queued, processing, completed, failed]
+        requestedAt:
+          type: string
+          format: date-time
+
+  responses:
+    BadRequest:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Authentication required or session expired
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Authenticated but not allowed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found for this user
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          $ref: "#/components/headers/RetryAfter"
+        X-RateLimit-Limit:
+          $ref: "#/components/headers/XRateLimitLimit"
+        X-RateLimit-Remaining:
+          $ref: "#/components/headers/XRateLimitRemaining"
+        X-RateLimit-Reset:
+          $ref: "#/components/headers/XRateLimitReset"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"

@@ -1,0 +1,84 @@
+import {
+  listMemoryJobsForTests,
+  resetMemoryJobsForTests,
+  takeMemoryJobsForTests,
+} from '@/lib/jobs/queues';
+import { resetFakeObjectStore, getFakeObjectStore } from '@/lib/storage/s3';
+import { processScanMaterial } from '@/worker/processors/scan-material';
+import { processParseMaterial } from '@/worker/processors/parse-material';
+import { processGenerateLesson } from '@/worker/processors/generate-lesson';
+import type {
+  DeleteAccountJob,
+  GenerateLessonJob,
+  MaterialJob,
+  ParseMaterialJob,
+  ScanMaterialJob,
+} from '@/lib/jobs/schemas';
+
+/** Clears the memory queue, fake object store, and any pending outbox state. */
+export function resetPipelineState(): void {
+  resetMemoryJobsForTests();
+  resetFakeObjectStore();
+}
+
+/** Drains and consumes material jobs so each payload runs exactly once. */
+export function drainMaterialJobs(): MaterialJob[] {
+  return takeMemoryJobsForTests().map((job) => job.payload) as MaterialJob[];
+}
+
+/** Drains queued account-cascade jobs, keeping them in queue order. */
+export function drainAccountDeletionJobs(): DeleteAccountJob[] {
+  return takeMemoryJobsForTests('account-deletion').map(
+    (job) => job.payload,
+  ) as DeleteAccountJob[];
+}
+
+/** Non-destructive peek at material jobs for one material. */
+export function materialJobsFor(materialId: string): MaterialJob[] {
+  return listMemoryJobsForTests()
+    .filter((job) => (job.payload as { materialId?: string }).materialId === materialId)
+    .map((job) => job.payload) as MaterialJob[];
+}
+
+async function runProcessor(
+  job: ScanMaterialJob | ParseMaterialJob | GenerateLessonJob,
+): Promise<void> {
+  switch (job.type) {
+    case 'scan_material':
+      await processScanMaterial(job);
+      break;
+    case 'parse_material':
+      await processParseMaterial(job);
+      break;
+    case 'generate_lesson':
+      await processGenerateLesson(job);
+      break;
+  }
+}
+
+/**
+ * Runs queued material jobs to termination — exactly what the worker would — by
+ * dispatching payloads to the real processors. Returns the payloads seen.
+ */
+export async function runPipeline(
+  options: { limit?: number; materialId?: string } = {},
+): Promise<MaterialJob[]> {
+  const limit = options.limit ?? 24;
+  const processed: MaterialJob[] = [];
+  for (let index = 0; index < limit; index += 1) {
+    const pending = drainMaterialJobs().filter((job) => {
+      if (options.materialId) return (job as { materialId?: string }).materialId === options.materialId;
+      return true;
+    });
+    for (const job of pending as (ScanMaterialJob | ParseMaterialJob | GenerateLessonJob)[]) {
+      processed.push(job);
+      await runProcessor(job);
+    }
+    if (pending.length === 0) break;
+  }
+  return processed;
+}
+
+export const fakeUpload = (storageKey: string, bytes: Buffer, contentType: string) => {
+  getFakeObjectStore().objects.set(storageKey, { bytes, contentType });
+};

@@ -1,0 +1,18 @@
+title = "Talas secret scan"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documentation placeholders and test-only credentials"
+paths = [
+  '''specs/.*''',
+  '''\.specify/.*''',
+  '''\.env\.example''',
+  '''pnpm-lock\.yaml''',
+  '''tests/.*''',
+]
+regexes = [
+  '''replace-with-at-least-32-random-characters''',
+  '''development-(access|refresh|csrf)-secret-change-me-\d+''',
+]
