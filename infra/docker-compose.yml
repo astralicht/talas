@@ -1,0 +1,106 @@
+services:
+  mongo:
+    image: mongo:7
+    command: ['--replSet', 'rs0', '--bind_ip_all']
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', 'db.runCommand({ ping: 1 }).ok']
+      interval: 5s
+      timeout: 10s
+      retries: 20
+
+  mongo-init:
+    image: mongo:7
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint:
+      - mongosh
+      - --host
+      - mongo:27017
+      - --eval
+      - |
+        try {
+          rs.status();
+        } catch (error) {
+          rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] });
+        }
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    # MinIO removed its images from Docker Hub and quay.io now requires auth,
+    # so this uses RustFS (rustfs/rustfs) — a drop-in S3-compatible replacement.
+    image: rustfs/rustfs:latest
+    environment:
+      RUSTFS_ACCESS_KEY: talas
+      RUSTFS_SECRET_KEY: talas-local-secret
+      RUSTFS_ADDRESS: ':9000'
+      RUSTFS_CONSOLE_ADDRESS: ':9001'
+      RUSTFS_CONSOLE_ENABLE: 'true'
+      RUSTFS_OBS_LOGGER_LEVEL: error
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/health']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio-init:
+    # rustfs/rc is RustFS's mc-compatible CLI (quay.io/minio/mc also requires auth now)
+    image: rustfs/rc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        rc alias set local http://minio:9000 talas talas-local-secret
+        rc mb --ignore-existing local/talas-local
+        rc anonymous set private local/talas-local
+
+  clamav:
+    image: clamav/clamav:stable
+    ports:
+      - '3310:3310'
+    volumes:
+      - clamav-data:/var/lib/clamav
+    healthcheck:
+      test: ['CMD', 'clamdcheck.sh']
+      interval: 15s
+      timeout: 10s
+      retries: 30
+      start_period: 120s
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+
+volumes:
+  mongo-data:
+  redis-data:
+  minio-data:
+  clamav-data:
