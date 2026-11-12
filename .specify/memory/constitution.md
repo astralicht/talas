@@ -53,8 +53,12 @@ Uploads MUST use short-lived, single-object presigned S3 URLs that expire within
 15 minutes, constrain content type and size, and are never publicly readable.
 Uploaded files MUST be malware-scanned before parsing, filenames MUST be
 sanitized, and file parsing MUST run in an isolated worker with hard CPU, memory,
-and timeout limits. Image-only documents MUST be rejected with an actionable
-message until OCR support is specified.
+and timeout limits. Image-only PDF documents MUST be accepted: their pages are
+rendered into image assets, and lesson generation MAY use vision-capable
+providers to interpret them. Diagram and image extraction from text-bearing
+PDF and DOCX files MUST be supported. Standalone raster image file types
+(for example, JPEG or PNG uploads) remain prohibited unless a feature
+specification explicitly adds another type.
 
 LLM and upload endpoints MUST enforce per-user rate limits backed by a shared
 store so limits hold across instances. The `/api/process-material` endpoint MUST
@@ -124,9 +128,12 @@ All implementations MUST conform to the following workflow definitions:
 
 **Authentication and Sessions**
 
-*   Access tokens MUST expire within 15 minutes, and refresh tokens MUST rotate,
-    be stored hashed, and expire within 7 days. Logout, password change, and
-    account disable MUST invalidate active sessions and refresh tokens.
+*   Access tokens MUST expire within 24 hours, and refresh tokens MUST rotate,
+    be stored hashed, and expire within 30 days. Both TTLs MUST be configurable
+    via environment variables with bounded validation, defaulting to 24 hours
+    and 30 days respectively. Logout, password change, and account disable MUST
+    invalidate active sessions and refresh tokens. Rotation, hashing, single-use,
+    and reuse-detection rules are unchanged.
 *   Access-token expiration MUST NOT lock out users who hold a valid, unrevoked
     refresh token. A full-page, same-origin navigation from a signed-in browser
     MAY silently renew the access token through an explicit renewal hop that
@@ -241,5 +248,5 @@ this document. A violation MUST block merge until it is resolved or formally
 waived in writing by the maintainers with a stated rationale and expiry. The
 constitution MUST be reviewed at least quarterly and after any security incident.
 
-**Version**: 1.3.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-09
+**Version**: 2.0.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-12
 
