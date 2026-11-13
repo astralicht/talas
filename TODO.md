@@ -257,3 +257,31 @@ unit+security, 30/30 integration, 38/38 contract, 11/11 e2e.
 - pnpm db:seed → alice@talas.local / bob@talas.local, password talas-local-password
 - Alice's sample-lesson download 404s until real MinIO exists (S3_FAKE store is
   per-process); login/AI/email all work via fake modes in .env.local
+
+## Deployment pre-flight checklist (standing session rule)
+
+**When deployment details are requested, ALL of the following must be
+activated and confirmed BEFORE proceeding — anything off is a blocker.**
+
+- [ ] Secrets: real `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` / `CSRF_SECRET`
+      and S3 credentials set (the env schema rejects `development-*` defaults
+      in production — that validation must pass, never be bypassed)
+- [ ] AI provider: real key + `AI_PROVIDER` set; Go subscription caps
+      acknowledged ($12/5h, $30/wk, $60/mo); `AI_DAILY_BUDGET_USD` deliberate
+- [ ] Rate limits & lockout: `RATE_LIMIT_DISABLED` OFF — upload limits and
+      login lockout active (the e2e/dev convenience must not reach production)
+- [ ] Malware scanning: real ClamAV endpoint (`CLAMAV_FAKE` empty) — infected
+      files are actually quarantined
+- [ ] Storage: `S3_FAKE=false`, bucket CORS scoped to the real origin,
+      private-cache headers verified on asset/download routes
+- [ ] Session TTLs: `SESSION_ACCESS_TTL_SECONDS` / `SESSION_REFRESH_TTL_SECONDS`
+      deliberately chosen (24h/30d defaults or stricter), not dev values
+- [ ] Email: real transport (`RESEND_API_KEY`), not mailhog/memory
+- [ ] CSP/connect-src: no dev-only localhost allowances (production-excluded
+      by code — confirm the deployed build reflects that)
+- [ ] Gate order respected on the build machine: e2e LAST (its dev server
+      overwrites `.next` chunks) — or a fresh `pnpm build` before deploy
+
+Linux dev stack: scripts/dev-services.sh (Mongo RS on 27098 via host
+networking, Redis 6399, RustFS S3 9002 with bucket CORS; data under
+.data/dev-services).
