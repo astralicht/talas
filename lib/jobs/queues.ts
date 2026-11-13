@@ -2,15 +2,19 @@ import { Queue, type JobsOptions } from 'bullmq';
 import { getRedis } from '@/lib/db/redis';
 import {
   ACCOUNT_DELETION_QUEUE,
+  LESSON_GENERATION_QUEUE,
   MATERIAL_QUEUE,
+  generateLessonJobIdFor,
   jobIdFor,
   type DeleteAccountJob,
+  type GenerateLessonRequestJob,
   type MaterialJob,
 } from './schemas';
 
 const globalForQueues = globalThis as unknown as {
   __talasMaterialQueue?: Queue;
   __talasDeletionQueue?: Queue;
+  __talasLessonGenerationQueue?: Queue;
   __talasMemoryJobs?: MemoryJob[];
 };
 
@@ -60,6 +64,16 @@ export function getAccountDeletionQueue(): Queue {
   return globalForQueues.__talasDeletionQueue;
 }
 
+export function getLessonGenerationQueue(): Queue {
+  if (!globalForQueues.__talasLessonGenerationQueue) {
+    globalForQueues.__talasLessonGenerationQueue = new Queue(LESSON_GENERATION_QUEUE, {
+      connection: getRedis(),
+      defaultJobOptions,
+    });
+  }
+  return globalForQueues.__talasLessonGenerationQueue;
+}
+
 export async function enqueueMaterialJob(payload: MaterialJob): Promise<string> {
   const id = jobIdFor(payload.type, payload.materialId);
   if (memoryQueueMode()) {
@@ -92,6 +106,26 @@ export async function enqueueAccountDeletionJob(payload: DeleteAccountJob): Prom
   return job.id ?? id;
 }
 
+/** Explicit lesson-generation requests (specs/005); idempotent per request id. */
+export async function enqueueLessonGenerationJob(
+  payload: GenerateLessonRequestJob,
+): Promise<string> {
+  const id = generateLessonJobIdFor(payload.requestId);
+  if (memoryQueueMode()) {
+    memoryJobs().push({ queue: LESSON_GENERATION_QUEUE, name: payload.type, payload, id });
+    return id;
+  }
+  const queue = getLessonGenerationQueue();
+  const job = await queue.add(payload.type, payload, {
+    jobId: id,
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 10_000 },
+    removeOnComplete: 500,
+    removeOnFail: 500,
+  });
+  return job.id ?? id;
+}
+
 export function listMemoryJobsForTests(queue?: string): MemoryJob[] {
   const jobs = memoryJobs();
   return queue ? jobs.filter((job) => job.queue === queue) : [...jobs];
@@ -113,6 +147,8 @@ export function resetMemoryJobsForTests(): void {
 export async function closeQueues(): Promise<void> {
   await globalForQueues.__talasMaterialQueue?.close().catch(() => undefined);
   await globalForQueues.__talasDeletionQueue?.close().catch(() => undefined);
+  await globalForQueues.__talasLessonGenerationQueue?.close().catch(() => undefined);
   delete globalForQueues.__talasMaterialQueue;
   delete globalForQueues.__talasDeletionQueue;
+  delete globalForQueues.__talasLessonGenerationQueue;
 }

@@ -1,5 +1,6 @@
 import type { IMaterial } from '@/lib/db/models/material';
 import type { ILesson } from '@/lib/db/models/lesson';
+import type { ILessonGenerationRequest } from '@/lib/db/models/lesson-generation-request';
 import type { ILessonRevision } from '@/lib/db/models/lesson-revision';
 
 export interface MaterialView {
@@ -67,6 +68,30 @@ export function serializeLesson(lesson: ILesson): LessonView {
     version: lesson.version,
     createdAt: lesson.createdAt,
     updatedAt: lesson.updatedAt,
+  };
+}
+
+export interface LessonGenerationRequestView {
+  requestId: string;
+  status: ILessonGenerationRequest['status'];
+  title: string;
+  materialIds: string[];
+  lessonId: string | null;
+  lastErrorCode: string | null;
+  lastErrorMessage: string | null;
+}
+
+export function serializeLessonGenerationRequest(
+  request: ILessonGenerationRequest,
+): LessonGenerationRequestView {
+  return {
+    requestId: request._id.toHexString(),
+    status: request.status,
+    title: request.title,
+    materialIds: request.materialIds.map((id) => id.toHexString()),
+    lessonId: request.lessonId ? request.lessonId.toHexString() : null,
+    lastErrorCode: request.lastErrorCode,
+    lastErrorMessage: request.lastErrorMessage,
   };
 }
 

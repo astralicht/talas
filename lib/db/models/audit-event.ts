@@ -20,6 +20,7 @@ export const AUDIT_EVENT_TYPES = [
   'scan_clean',
   'scan_infected',
   'scan_unavailable',
+  'generation_requested',
   'generation_succeeded',
   'generation_failed',
   'material_retry',

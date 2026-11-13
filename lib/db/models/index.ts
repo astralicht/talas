@@ -12,6 +12,16 @@ export { ProcessingJob, PROCESSING_JOB_STATUSES, MAX_PROCESSING_ATTEMPTS } from 
 export type { IProcessingJob, ProcessingJobDocument, ProcessingJobStatus } from './processing-job';
 export { Lesson, LESSON_STATUSES, MAX_LESSON_CONTENT_LENGTH } from './lesson';
 export type { ILesson, LessonDocument, LessonStatus } from './lesson';
+export {
+  LessonGenerationRequest,
+  LESSON_GENERATION_REQUEST_STATUSES,
+  MAX_MATERIALS_PER_REQUEST,
+} from './lesson-generation-request';
+export type {
+  ILessonGenerationRequest,
+  LessonGenerationRequestDocument,
+  LessonGenerationRequestStatus,
+} from './lesson-generation-request';
 export { LessonRevision, REVISION_AUTHOR_TYPES } from './lesson-revision';
 export type { ILessonRevision, LessonRevisionDocument, RevisionAuthorType } from './lesson-revision';
 export { AuditEvent, AUDIT_EVENT_TYPES } from './audit-event';

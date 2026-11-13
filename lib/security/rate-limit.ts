@@ -19,6 +19,7 @@ const AUTH_IP: RateLimitPolicy = { points: 10, durationSeconds: 15 * 60 };
 const LOGIN_ACCOUNT: RateLimitPolicy = { points: 5, durationSeconds: 15 * 60 };
 const UPLOAD_HOURLY: RateLimitPolicy = { points: 10, durationSeconds: 60 * 60 };
 const UPLOAD_MINUTE: RateLimitPolicy = { points: 5, durationSeconds: 60 };
+const GENERATE_HOURLY: RateLimitPolicy = { points: 10, durationSeconds: 60 * 60 };
 
 export const RATE_LIMITS = {
   AUTH_IP,
@@ -26,6 +27,7 @@ export const RATE_LIMITS = {
   UPLOAD_HOURLY,
   UPLOAD_MINUTE,
   UPLOAD: [UPLOAD_MINUTE, UPLOAD_HOURLY] as const,
+  GENERATE_HOURLY,
 } as const;
 
 type LimiterLike = Pick<RateLimiterAbstract, 'consume' | 'delete'>;

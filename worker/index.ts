@@ -6,8 +6,10 @@ import { connectDb, disconnectDb } from '@/lib/db/connection';
 import { closeQueues } from '@/lib/jobs/queues';
 import {
   ACCOUNT_DELETION_QUEUE,
+  LESSON_GENERATION_QUEUE,
   MATERIAL_QUEUE,
   parseJobPayload,
+  parseLessonRequestJob,
   type DeleteAccountJob,
   type GenerateLessonJob,
   type ParseMaterialJob,
@@ -17,7 +19,10 @@ import { workerConcurrency, withJobLimits } from './runtime/limits';
 import { processDeleteAccount } from './processors/delete-account';
 import { processScanMaterial } from './processors/scan-material';
 import { processParseMaterial } from './processors/parse-material';
-import { processGenerateLesson } from './processors/generate-lesson';
+import {
+  processGenerateLesson,
+  processGenerateLessonRequest,
+} from './processors/generate-lesson';
 
 const logger = getLogger().child({ service: 'talas-worker' });
 
@@ -46,6 +51,15 @@ async function handle(job: Job): Promise<void> {
     } else {
       await runMaterialJob(payload);
     }
+    logger.info({ jobId: job.id, jobType: payload.type }, 'Worker job finished');
+  });
+}
+
+async function handleLessonGeneration(job: Job): Promise<void> {
+  const payload = parseLessonRequestJob(job.data);
+  await runWithCorrelation({ correlationId: payload.correlationId, userId: payload.userId }, async () => {
+    logger.info({ jobId: job.id, jobType: payload.type }, 'Worker job started');
+    await withJobLimits(payload.type, () => processGenerateLessonRequest(payload));
     logger.info({ jobId: job.id, jobType: payload.type }, 'Worker job finished');
   });
 }
@@ -80,6 +94,35 @@ async function finalizeExhaustedMaterialJob(job: Job): Promise<void> {
   ).exec();
 }
 
+/** Marks a lesson-generation request failed once BullMQ retries are exhausted. */
+async function finalizeExhaustedGenerationRequest(job: Job): Promise<void> {
+  const data = job.data as { type?: string; requestId?: string; userId?: string };
+  if (!data || data.type !== 'generate_lesson_request' || !data.requestId || !data.userId) return;
+
+  const attemptsConfigured = job.opts?.attempts ?? 1;
+  if (attemptsConfigured > 1 && job.attemptsMade < attemptsConfigured) return;
+
+  const { LessonGenerationRequest } = await import('@/lib/db/models/lesson-generation-request');
+  const stillOpen = await LessonGenerationRequest.findOneAndUpdate(
+    {
+      _id: data.requestId,
+      userId: data.userId,
+      status: { $in: ['queued', 'processing'] },
+    },
+    {
+      $set: {
+        status: 'failed',
+        leaseUntil: null,
+        lastErrorCode: 'internal_error',
+        lastErrorMessage: 'The generation worker could not finish. Request the lesson again.',
+      },
+    },
+  ).exec();
+  if (stillOpen) {
+    logger.warn({ requestId: data.requestId }, 'Generation request finalized as failed');
+  }
+}
+
 let workers: Worker[] = [];
 
 export async function startWorker(): Promise<Worker[]> {
@@ -90,12 +133,21 @@ export async function startWorker(): Promise<Worker[]> {
   workers = [
     new Worker(MATERIAL_QUEUE, handle, { connection, concurrency }),
     new Worker(ACCOUNT_DELETION_QUEUE, handle, { connection, concurrency: 1 }),
+    new Worker(LESSON_GENERATION_QUEUE, handleLessonGeneration, {
+      connection,
+      concurrency: 1,
+    }),
   ];
 
   for (const worker of workers) {
     worker.on('failed', async (job, error) => {
       logger.error({ jobId: job?.id, jobType: job?.name, err: error }, 'Worker job failed');
-      if (job) await finalizeExhaustedMaterialJob(job).catch(() => undefined);
+      if (!job) return;
+      if (job.queueName === LESSON_GENERATION_QUEUE) {
+        await finalizeExhaustedGenerationRequest(job).catch(() => undefined);
+        return;
+      }
+      await finalizeExhaustedMaterialJob(job).catch(() => undefined);
     });
     worker.on('error', (error) => logger.error({ err: error }, 'Worker error'));
   }

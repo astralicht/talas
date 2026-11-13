@@ -29,7 +29,13 @@ export const generateLessonRequestJobSchema = z
   .object({
     type: z.literal('generate_lesson_request'),
     requestId: objectIdSchema,
-    materialIds: z.array(objectIdSchema).min(1).max(5),
+    materialIds: z
+      .array(objectIdSchema)
+      .min(1)
+      .max(5)
+      .refine((ids) => new Set(ids).size === ids.length, {
+        message: 'Source materials must be distinct',
+      }),
     title: z.string().min(1).max(200),
     userId: objectIdSchema,
     correlationId: z.string().min(1).max(128),

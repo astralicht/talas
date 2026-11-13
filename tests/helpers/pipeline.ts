@@ -6,10 +6,14 @@ import {
 import { resetFakeObjectStore, getFakeObjectStore } from '@/lib/storage/s3';
 import { processScanMaterial } from '@/worker/processors/scan-material';
 import { processParseMaterial } from '@/worker/processors/parse-material';
-import { processGenerateLesson } from '@/worker/processors/generate-lesson';
+import {
+  processGenerateLesson,
+  processGenerateLessonRequest,
+} from '@/worker/processors/generate-lesson';
 import type {
   DeleteAccountJob,
   GenerateLessonJob,
+  GenerateLessonRequestJob,
   MaterialJob,
   ParseMaterialJob,
   ScanMaterialJob,
@@ -102,6 +106,25 @@ export async function generateLessonForMaterial(
     userId,
     correlationId,
   } as GenerateLessonJob);
+}
+
+/**
+ * Drains the lesson-generation queue and runs the explicit request processor
+ * for one request id — what the dedicated worker would do (specs/005).
+ * Returns the job payload that was executed.
+ */
+export async function runGenerationRequest(
+  requestId: string,
+  userId: string,
+): Promise<GenerateLessonRequestJob> {
+  const job = takeMemoryJobsForTests('lesson-generation').find(
+    (entry) => (entry.payload as { requestId?: string }).requestId === requestId,
+  );
+  if (!job) throw new Error(`No lesson-generation job queued for request ${requestId}`);
+  const payload = job.payload as GenerateLessonRequestJob;
+  await processGenerateLessonRequest(payload);
+  void userId;
+  return payload;
 }
 
 export const fakeUpload = (storageKey: string, bytes: Buffer, contentType: string) => {

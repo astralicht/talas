@@ -135,18 +135,29 @@ lint, 101/101 unit+security, 21/21 integration (new backfill test), 33/33 contra
 
 ## Step 4 — Generation request API + worker rewrite
 
-- [ ] lib/db/models/lesson-generation-request.ts { userId, title, materialIds,
+- [x] lib/db/models/lesson-generation-request.ts { userId, title, materialIds,
       existingLessonId?, status queued|processing|ready|failed, lessonId?,
       lastErrorCode/Message } + indexes; register in ensure-indexes
-- [ ] POST /api/lessons/generate { title 1–200, materialIds 1–5 } — auth+CSRF+
+      (also a worker leaseUntil for crash recovery, ProcessingJob pattern)
+- [x] POST /api/lessons/generate { title 1–200, materialIds 1–5 } — auth+CSRF+
       verified-user gate+rate limit; foreign material → non-revealing 404
-- [ ] GET /api/lesson-requests/{id} — polling route
-- [ ] POST /api/lessons/{lessonId}/regenerate — optional materialIds, CAS on version
-- [ ] Worker: multi-source fetch/extract (per-material 32k + total ~128k caps,
+      (10/hour per user via GENERATE_HOURLY; not-ready materials answer the
+      same 404; audit event generation_requested)
+- [x] GET /api/lesson-requests/{id} — polling route
+- [x] POST /api/lessons/{lessonId}/regenerate — optional materialIds, CAS on version
+- [x] Worker: multi-source fetch/extract (per-material 32k + total ~128k caps,
       truncation notices, untrusted-material delimiters), user-supplied title in
       prompts, new-lesson transaction (Lesson v1 + LessonRevision v1), regenerate
       CAS append (save-service pattern), AI budget + audit events
-- [ ] Unit/contract/integration tests for all the above
+      (processGenerateLessonRequest on the dedicated LESSON_GENERATION_QUEUE;
+      title override is deterministic — the requested title always wins;
+      exhausted BullMQ retries finalize the request as failed)
+- [x] Unit/contract/integration tests for all the above
+
+Step 4 notes (2026-11-13): prompt caps live in lib/ai/prompts.ts
+(SOURCE_CHAR_CAP / TOTAL_SOURCE_CHAR_CAP); generate-lesson accepts sources[] +
+title and prefers the multi-source prompt builder. Gates: typecheck, lint,
+108/108 unit+security, 27/27 integration, 38/38 contract.
 
 ## Step 5 — Material image assets
 

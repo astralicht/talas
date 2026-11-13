@@ -12,8 +12,10 @@ import { lessonToMarkdown } from './markdown';
 import {
   buildLessonPrompt,
   buildLessonSystemPrompt,
+  buildMultiSourceLessonPrompt,
   LESSON_PROMPT_VERSION,
   MAX_OUTPUT_TOKENS,
+  type LessonSourceInput,
 } from './prompts';
 import { lessonModelCandidates, type LessonModel } from './provider';
 import { getEnv } from '@/lib/env';
@@ -36,9 +38,14 @@ export class LessonGenerationError extends Error {
 
 export interface GenerateLessonInput {
   userId: string;
+  /** Single-source input (legacy single-material path). */
   filename: string;
   detectedMime: string;
   text: string;
+  /** Multi-source input (specs/005); takes precedence over the single fields. */
+  sources?: LessonSourceInput[];
+  /** User-supplied title; the generated lesson uses exactly this title. */
+  title?: string;
 }
 
 export interface GenerateLessonOutput {
@@ -103,11 +110,15 @@ async function callModel(
   candidate: LessonModel,
   input: GenerateLessonInput,
 ): Promise<{ object: unknown; usage?: GenerateObjectUsage }> {
+  const prompt =
+    input.sources && input.sources.length > 0
+      ? buildMultiSourceLessonPrompt({ title: input.title, sources: input.sources })
+      : buildLessonPrompt(input);
   return generateObjectImpl({
     model: candidate.model,
     schema: (await import('./lesson-schema')).generatedLessonSchema,
     system: buildLessonSystemPrompt(),
-    prompt: buildLessonPrompt(input),
+    prompt,
     maxOutputTokens: MAX_OUTPUT_TOKENS,
     temperature: 0.2,
   });
@@ -157,9 +168,14 @@ export async function generateLesson(
         usage.outputTokens ?? 0,
       );
 
+      // The user-supplied title (specs/005) wins over the model's suggestion.
+      const lesson: GeneratedLesson = input.title
+        ? { ...parsed.lesson, title: input.title }
+        : parsed.lesson;
+
       return {
-        lesson: parsed.lesson,
-        markdown: lessonToMarkdown(parsed.lesson),
+        lesson,
+        markdown: lessonToMarkdown(lesson),
         provider: candidate.provider,
         model: candidate.modelId,
         promptVersion: LESSON_PROMPT_VERSION,

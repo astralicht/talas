@@ -23,6 +23,35 @@ export const lessonIdParamsSchema = strictObject({
   lessonId: objectIdSchema,
 });
 
+/** Request body for POST /api/lessons/generate (specs/005): 1-5 distinct sources. */
+export const generateLessonRequestSchema = strictObject({
+  title: lessonTitleSchema,
+  materialIds: z
+    .array(objectIdSchema)
+    .min(1)
+    .max(5)
+    .refine((ids) => new Set(ids).size === ids.length, {
+      message: 'Source materials must be distinct',
+    }),
+});
+
+/** Request body for POST /api/lessons/{lessonId}/regenerate (CAS on version). */
+export const regenerateLessonSchema = strictObject({
+  version: z.number().int().min(1),
+  materialIds: z
+    .array(objectIdSchema)
+    .min(1)
+    .max(5)
+    .refine((ids) => new Set(ids).size === ids.length, {
+      message: 'Source materials must be distinct',
+    })
+    .optional(),
+});
+
+export const requestIdParamsSchema = strictObject({
+  requestId: objectIdSchema,
+});
+
 export const revisionIdParamsSchema = strictObject({
   lessonId: objectIdSchema,
   revisionId: objectIdSchema,
@@ -30,3 +59,5 @@ export const revisionIdParamsSchema = strictObject({
 
 export type LessonSaveInput = z.infer<typeof lessonSaveSchema>;
 export type RestoreRevisionInput = z.infer<typeof restoreRevisionSchema>;
+export type GenerateLessonRequestInput = z.infer<typeof generateLessonRequestSchema>;
+export type RegenerateLessonInput = z.infer<typeof regenerateLessonSchema>;

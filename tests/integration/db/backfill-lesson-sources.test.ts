@@ -1,16 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Db } from 'mongodb';
 import { ensureIntegrationMongo } from '../../helpers/mongo';
 import { connectDb, disconnectDb } from '@/lib/db/connection';
 import { backfillLessonSources } from '@/lib/db/backfills/lesson-sources';
 import { Lesson } from '@/lib/db/models/lesson';
 
-let db: Db;
-
 beforeAll(async () => {
   const uri = await ensureIntegrationMongo();
   await connectDb(uri);
-  db = (await connectDb(uri)).connection.db as Db;
 });
 
 afterAll(async () => {
@@ -86,7 +82,6 @@ describe('lesson source backfill (specs/005)', () => {
       promptVersion: 'v2',
     });
     expect(duplicate._id).toBeDefined();
-    void db;
   });
 
   it('rejects lessons whose source list is empty, oversized, or has duplicates', async () => {
