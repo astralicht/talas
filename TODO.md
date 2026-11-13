@@ -190,14 +190,31 @@ integration, 38/38 contract.
 
 ## Step 6 — UI flow
 
-- [ ] app/(app)/lessons/new/page.tsx + components/lessons/new-lesson-form.tsx —
+- [x] app/(app)/lessons/new/page.tsx + components/lessons/new-lesson-form.tsx —
       title input + checkbox multi-select of ready materials + request polling
-- [ ] Dashboard + lessons list "New lesson" CTA
-- [ ] Lesson read view: Regenerate dialog (pick additional materials, poll,
-      success banner "Version N generated")
-- [ ] Material pages: status copy updates (no auto-generate messaging),
-      lesson lookup via sourceMaterialIds, "Use in lesson" hint
-- [ ] Update tests/e2e journeys for the new navigation
+      (lands on the fresh lesson when the request turns ready)
+- [x] Dashboard + lessons list "New lesson" CTA
+- [x] Lesson read view: Regenerate dialog (pick additional materials, poll,
+      success banner "Version N generated") + Built-from-sources line with
+      links; lesson lookup via sourceMaterialIds on material pages, plus a
+      "Use in lesson" hint for ready materials without a lesson
+- [x] Material pages: status copy updates (no auto-generate messaging — the
+      processing label now says "Extracting the document text")
+- [x] Update tests/e2e journeys for the new navigation (11/11 e2e tests green
+      against the real stack: Mongo RS + Redis + RustFS S3 + worker)
+
+Step 6 notes (2026-11-13): the e2e stack is provisioned by the new
+scripts/dev-services.sh (Linux counterpart of dev-services.ps1 — Mongo RS via
+host networking so the announced address resolves, Redis, and RustFS as the
+S3-compatible store because the MinIO image is unreachable from this network;
+bucket CORS is configured by the script since presigned browser uploads need
+it). The e2e server env needs RATE_LIMIT_DISABLED=true (the constitutional
+limiters otherwise accumulate across runs in the long-lived dev process),
+and two app-level fixes came out of the journeys: the CSP connect-src now
+allows http://127.0.0.1:* and http://localhost:* outside production (local S3
+uploads are plain HTTP), and the auth e2e expectations were updated for the
+strict-mode duplicate-email display. Gates: typecheck, lint, 115/115
+unit+security, 30/30 integration, 38/38 contract, 11/11 e2e.
 
 ## Step 7 — Dark mode (semantic tokens)
 

@@ -6,6 +6,7 @@ import { LessonRepository } from '@/lib/db/repositories/lesson-repository';
 import { MaterialRepository } from '@/lib/db/repositories/material-repository';
 import { MarkdownRenderer } from '@/components/lessons/markdown-renderer';
 import { DeleteLessonDialog } from '@/components/lessons/delete-lesson-dialog';
+import { RegenerateLessonDialog } from '@/components/lessons/regenerate-lesson-dialog';
 
 export const metadata: Metadata = { title: 'Lesson' };
 export const dynamic = 'force-dynamic';
@@ -36,10 +37,15 @@ export default async function LessonViewPage({
   if (!lesson) notFound();
 
   const materials = new MaterialRepository(user.id);
-  const material = lesson.materialId
-    ? await materials.findOwnedById(lesson.materialId.toHexString())
-    : null;
-  const materialDownload = material && DOWNLOADABLE_STATUSES.has(material.status);
+  const [primaryMaterial, readyMaterials] = await Promise.all([
+    lesson.materialId
+      ? materials.findOwnedById(lesson.materialId.toHexString())
+      : Promise.resolve(null),
+    materials.list({ status: 'ready' }, { limit: 100, sort: { updatedAt: -1 } }),
+  ]);
+  const materialDownload =
+    primaryMaterial && DOWNLOADABLE_STATUSES.has(primaryMaterial.status);
+  const currentSourceIds = lesson.sourceMaterialIds.map((id) => id.toHexString());
 
   return (
     <div className="space-y-6">
@@ -63,7 +69,7 @@ export default async function LessonViewPage({
           <div className="flex flex-wrap items-center gap-2">
             {materialDownload ? (
               <a
-                href={`/api/materials/${material._id.toHexString()}/download`}
+                href={`/api/materials/${primaryMaterial!._id.toHexString()}/download`}
                 className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 data-testid="download-material"
               >
@@ -77,20 +83,36 @@ export default async function LessonViewPage({
             >
               Edit lesson
             </Link>
+            <RegenerateLessonDialog
+              lessonId={lessonId}
+              version={lesson.version}
+              currentSourceIds={currentSourceIds}
+              readyMaterials={readyMaterials.map((entry) => ({
+                id: entry._id.toHexString(),
+                originalFilename: entry.originalFilename,
+              }))}
+            />
             <DeleteLessonDialog lessonId={lessonId} />
           </div>
         </div>
       </div>
 
-      {material ? (
+      {currentSourceIds.length > 0 ? (
         <p className="text-sm text-slate-600">
-          Source material:{' '}
-          <Link
-            href={`/materials/${material._id.toHexString()}`}
-            className="text-brand-600 font-medium hover:underline"
-          >
-            {material.originalFilename}
-          </Link>
+          Built from{' '}
+          {readyMaterials
+            .filter((entry) => currentSourceIds.includes(entry._id.toHexString()))
+            .map((entry, index) => (
+              <span key={entry._id.toHexString()}>
+                {index > 0 ? ', ' : ''}
+                <Link
+                  href={`/materials/${entry._id.toHexString()}`}
+                  className="text-brand-600 font-medium hover:underline"
+                >
+                  {entry.originalFilename}
+                </Link>
+              </span>
+            ))}
         </p>
       ) : null}
 

@@ -91,13 +91,21 @@ export default async function DashboardPage() {
         <div className="rounded-xl border border-slate-200 bg-white p-6">
           <div className="flex items-baseline justify-between">
             <h2 className="text-base font-semibold text-slate-900">Lessons</h2>
-            <Link href="/lessons" className="text-sm font-medium text-brand-600 hover:underline">
-              View all
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link href="/lessons/new" className="text-sm font-medium text-brand-600 hover:underline">
+                New lesson
+              </Link>
+              <Link href="/lessons" className="text-sm font-medium text-brand-600 hover:underline">
+                View all
+              </Link>
+            </div>
           </div>
           {lessonPage.data.length === 0 ? (
             <p className="mt-3 text-sm text-slate-600">
-              Lessons appear here after a material finishes processing.
+              No lessons yet — create one from your processed materials.{' '}
+              <Link href="/lessons/new" className="font-medium text-brand-600 hover:underline">
+                New lesson
+              </Link>
             </p>
           ) : (
             <ul className="mt-3 divide-y divide-slate-100 text-sm">

@@ -19,3 +19,4 @@ blob-report/
 .turbo/
 .claude/
 opencode.json
+.data/

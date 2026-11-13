@@ -36,7 +36,7 @@ export default async function MaterialDetailPage({
   const lessons = new LessonRepository(user.id);
   const material = await materials.findOwnedById(materialId);
   if (!material || material.status === 'deleted') notFound();
-  const lesson = await lessons.findByMaterialId(materialId);
+  const lesson = await lessons.findBySourceMaterial(materialId);
 
   const initial: MaterialStatusResponse = {
     id: material!._id.toHexString(),
@@ -75,12 +75,27 @@ export default async function MaterialDetailPage({
 
       {lesson ? (
         <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-6">
-          <p className="text-sm text-emerald-900">Your lesson is ready.</p>
+          <p className="text-sm text-emerald-900">
+            A lesson built from this material is ready.
+          </p>
           <Link
             href={`/lessons/${lesson._id.toHexString()}`}
             className="bg-brand-600 hover:bg-brand-700 mt-2 inline-block rounded-md px-4 py-2 text-sm font-medium text-white"
           >
             Open lesson
+          </Link>
+        </section>
+      ) : material!.status === 'ready' ? (
+        <section className="rounded-xl border border-brand-200 bg-brand-50 p-6">
+          <p className="text-sm text-slate-800">
+            This document is processed and ready to be used in a lesson.
+          </p>
+          <Link
+            href={`/lessons/new?material=${materialId}`}
+            data-testid="use-in-lesson"
+            className="bg-brand-600 hover:bg-brand-700 mt-2 inline-block rounded-md px-4 py-2 text-sm font-medium text-white"
+          >
+            Use in lesson
           </Link>
         </section>
       ) : null}

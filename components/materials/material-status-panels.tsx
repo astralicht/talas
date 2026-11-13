@@ -109,5 +109,5 @@ const STAGE_LABELS: Record<string, string> = {
   uploaded: 'Waiting to be scanned',
   scanning: 'Scanning for malware',
   queued: 'Waiting to be parsed',
-  processing: 'Generating your lesson',
+  processing: 'Extracting the document text',
 };

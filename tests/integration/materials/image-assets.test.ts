@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createCanvas } from '@napi-rs/canvas';
 import { startTestApp, stopTestApp } from '../../helpers/app-server';
-import { registerVerifiedUser, type RegisteredUser } from '../../helpers/client';
+import { registerVerifiedUser } from '../../helpers/client';
 import { confirmMaterial, uploadToFakeS3 } from '../../helpers/storage-fake';
 import { runPipeline, resetPipelineState, runGenerationRequest } from '../../helpers/pipeline';
 import { buildDocxWithImage } from '../../fixtures/docx';
@@ -56,7 +56,6 @@ describe('material image assets (specs/005 FR-008)', () => {
     });
     const queued = (await import('@/lib/jobs/queues')).takeMemoryJobsForTests('lesson-generation');
     expect(queued).toHaveLength(1);
-    const requestId = (queued[0]?.payload as { requestId: string }).requestId;
     const { processGenerateLessonRequest } = await import('@/worker/processors/generate-lesson');
     await processGenerateLessonRequest(queued[0]?.payload as never);
 
@@ -88,10 +87,10 @@ describe('material image assets (specs/005 FR-008)', () => {
       materialIds: [upload.materialId],
     });
     expect(created.status).toBe(202);
-    const requestId = (created.body as { requestId: string }).requestId;
-    await runGenerationRequest(requestId, user.user.id);
+    const view = created.body as { requestId: string };
+    await runGenerationRequest(view.requestId, user.user.id);
 
-    const poll = await user.session.get(`/api/lesson-requests/${requestId}`);
+    const poll = await user.session.get(`/api/lesson-requests/${view.requestId}`);
     expect((poll.body as { status: string }).status).toBe('ready');
   });
 

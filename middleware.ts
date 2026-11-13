@@ -18,13 +18,19 @@ function newCorrelationId(): string {
 function contentSecurityPolicy(value: string): string {
   const development = process.env.NODE_ENV !== 'production';
   const scriptExtra = development ? " 'unsafe-eval'" : '';
+  // Development only: a local S3 endpoint runs over plain HTTP, so presigned
+  // uploads need localhost in connect-src. Production stays https-only.
+  const connectExtra =
+    development || process.env.E2E_MODE === 'true'
+      ? ' http://127.0.0.1:* http://localhost:*'
+      : '';
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${value}' 'strict-dynamic'${scriptExtra}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    "connect-src 'self' https:",
+    `connect-src 'self' https:${connectExtra}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

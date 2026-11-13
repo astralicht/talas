@@ -15,6 +15,7 @@ const config = [
       'coverage/**',
       'playwright-report/**',
       'test-results/**',
+      '.data/**',
       'next-env.d.ts',
     ],
   },

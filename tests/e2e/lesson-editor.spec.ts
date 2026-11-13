@@ -1,24 +1,50 @@
 import { expect, test } from '@playwright/test';
 
-const password = 'playwright-strong-password-1';
-const email = `e2e-editor-${Date.now()}@example.com`;
+// The seeded development account (pnpm db:seed) has a lesson to edit; fresh
+// registrations no longer receive lessons automatically (specs/005).
+const email = 'alice@talas.local';
+const password = 'talas-local-password';
+
+/** Opens the first lesson's read view from the lessons list; a middleware
+ * session bounce lands on /login?next=/lessons and is retried via sign-in. */
+async function openFirstLesson(page: import('@playwright/test').Page): Promise<void> {
+  await expect(async () => {
+    if (!/lessons\/[a-f0-9]{24}/.test(page.url())) {
+      if (page.url().includes('/login')) {
+        await page.getByLabel('Email').fill(email);
+        await page.getByLabel('Password').fill(password);
+        await page.getByRole('button', { name: 'Sign in' }).click();
+      } else {
+        await page.goto('/lessons');
+        await page.getByTestId('lesson-link').first().click();
+      }
+    }
+    await expect(page).toHaveURL(/lessons\/[a-f0-9]{24}/, { timeout: 5_000 });
+  }).toPass({ timeout: 60_000, intervals: [2_000, 5_000] });
+}
+
+
+/** Dev servers occasionally strand the form on /login after a successful
+ * POST; poll with re-clicks so a hiccup cannot fail the whole journey. */
+async function signIn(page: import('@playwright/test').Page): Promise<void> {
+  await page.goto('/login');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill(password);
+  await expect(async () => {
+    if (!page.url().includes('/dashboard')) {
+      const button = page.getByRole('button', { name: 'Sign in' });
+      if (await button.count()) await button.click();
+    }
+    await expect(page).toHaveURL(/dashboard/, { timeout: 5_000 });
+  }).toPass({ timeout: 60_000, intervals: [2_000, 5_000] });
+}
 
 test.describe.serial('lesson editor', () => {
   test('edits, autosaves, reloads, and sees persisted content', async ({ page }) => {
-    await page.goto('/register');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(password);
-    await page.getByRole('button', { name: 'Create account' }).click();
-    await page.goto('/login');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(password);
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await signIn(page);
 
-    // Reach the lesson read view from the dashboard, then open the editor.
-    await page
-      .getByRole('link', { name: /Open lesson|Edit lesson/ })
-      .first()
-      .click();
+    // Open the lesson read view from the lessons list, then the editor.
+    await openFirstLesson(page);
     await page.getByRole('link', { name: 'Edit lesson' }).click();
     await expect(page.getByLabel('Title')).toBeVisible();
 
@@ -40,11 +66,7 @@ test.describe.serial('lesson editor', () => {
     await page.getByLabel('Password').fill(password);
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await page.goto('/dashboard');
-    await page
-      .getByRole('link', { name: /Open lesson|Edit lesson/ })
-      .first()
-      .click();
+    await openFirstLesson(page);
     await page.getByRole('link', { name: 'Edit lesson' }).click();
 
     // Simulate a second tab: change version server-side, then make the first save stale.
@@ -96,18 +118,25 @@ test.describe.serial('lesson editor', () => {
     await page.getByLabel('Password').fill(password);
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await page.goto('/dashboard');
-    await page
-      .getByRole('link', { name: /Open lesson|Edit lesson/ })
-      .first()
-      .click();
+    await openFirstLesson(page);
     await page.getByRole('link', { name: 'Edit lesson' }).click();
+    await expect(page.getByLabel('Title')).toBeVisible();
+
+    // Save a distinct edit so the newest revision differs from the oldest one;
+    // restoring the oldest is then a real change the autosave persists.
+    const editor = page.getByLabel('Content');
+    const edited = `${(await editor.inputValue()).replace(/\n+$/, '')}\n\nRestore probe paragraph.`;
+    await editor.fill(edited);
+    await expect(page.getByText(/Saved/)).toBeVisible({ timeout: 20_000 });
 
     await page.getByRole('button', { name: 'Revision history' }).click();
-    const restoreButton = page.getByRole('button', { name: /Restore v\d+/ }).first();
-    if (await restoreButton.count()) {
-      await restoreButton.click();
-      await expect(page.getByText(/Saved/)).toBeVisible({ timeout: 20_000 });
-    }
+    // Newest first — the oldest revision holds the pre-probe content.
+    const restoreButton = page.getByRole('button', { name: /Restore v\d+/ }).last();
+    await restoreButton.click();
+
+    // The restore replaces the editor content and persists server-side (the
+    // status resets to the unedited state on the bumped version).
+    await expect(editor).not.toHaveValue(/Restore probe paragraph/, { timeout: 20_000 });
+    await expect(page.getByText(/Unedited · v\d+/)).toBeVisible({ timeout: 20_000 });
   });
 });

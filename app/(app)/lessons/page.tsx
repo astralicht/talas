@@ -17,17 +17,25 @@ export default async function LessonsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Lessons</h1>
-        <p className="text-sm text-slate-600">Generated and edited study lessons, newest first.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Lessons</h1>
+          <p className="text-sm text-slate-600">Generated and edited study lessons, newest first.</p>
+        </div>
+        <Link
+          href="/lessons/new"
+          className="bg-brand-600 hover:bg-brand-700 rounded-md px-4 py-2 text-sm font-medium text-white"
+        >
+          New lesson
+        </Link>
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-6">
         {data.length === 0 ? (
           <p className="text-sm text-slate-600">
-            Lessons appear here after a material finishes processing.{' '}
-            <Link href="/materials/new" className="font-medium text-brand-600 hover:underline">
-              Upload a document
+            No lessons yet — create one from your processed materials.{' '}
+            <Link href="/lessons/new" className="font-medium text-brand-600 hover:underline">
+              New lesson
             </Link>
             .
           </p>
@@ -40,6 +48,7 @@ export default async function LessonsPage() {
                   <div className="min-w-0">
                     <Link
                       href={`/lessons/${lesson.id}`}
+                      data-testid="lesson-link"
                       className="block truncate font-medium text-slate-800 hover:text-brand-600"
                     >
                       {lesson.title}

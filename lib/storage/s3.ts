@@ -6,6 +6,7 @@ import {
   DeleteObjectCommand,
   DeleteObjectsCommand,
   ListObjectsV2Command,
+  type S3ClientConfig,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getEnv } from '@/lib/env';
@@ -23,7 +24,13 @@ export function getS3Client(): S3Client {
         accessKeyId: env.S3_ACCESS_KEY_ID,
         secretAccessKey: env.S3_SECRET_ACCESS_KEY,
       },
-    });
+      // v3.700+ computes a CRC32 of an EMPTY payload for presigned URLs (the
+      // body is unknown at presign time); S3-compatible stores then reject the
+      // real browser upload with a signature/checksum mismatch. Only compute
+      // checksums when an operation actually requires one.
+      requestChecksumCalculation: 'when_required',
+      responseChecksumValidation: 'when_required',
+    } as unknown as S3ClientConfig);
   }
   return client;
 }

@@ -18,7 +18,7 @@ test.describe.serial('auth journey', () => {
     await page.getByLabel('Password').fill(password);
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page).toHaveURL(/dashboard/);
-    await expect(page.getByText(email)).toBeVisible();
+    await expect(page.getByText(email, { exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/login/);

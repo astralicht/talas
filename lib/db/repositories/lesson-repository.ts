@@ -30,4 +30,15 @@ export class LessonRepository extends TenantRepository<ILesson> {
       .findOne({ userId: this.tenantId, materialId: new Types.ObjectId(materialId) })
       .exec();
   }
+
+  /** Any non-deleted lesson that lists the material among its sources (specs/005). */
+  async findBySourceMaterial(materialId: string | Types.ObjectId) {
+    return this.model
+      .findOne({
+        userId: this.tenantId,
+        sourceMaterialIds: new Types.ObjectId(materialId),
+        status: { $ne: 'deleted' },
+      })
+      .exec();
+  }
 }
