@@ -9,6 +9,11 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     setupFiles: ['tests/setup.ts'],
+    // Contract (and security) files each boot their own Next server and a
+    // private mongod replica set; running test files concurrently on this
+    // machine thrashes the CPU and randomly times out healthy requests.
+    // Run files one at a time across all projects.
+    fileParallelism: false,
     projects: [
       {
         resolve: { alias },
@@ -49,7 +54,7 @@ export default defineConfig({
           environment: 'node',
           setupFiles: ['tests/setup.ts'],
           testTimeout: 120_000,
-          hookTimeout: 120_000,
+          hookTimeout: 300_000,
         },
       },
     ],

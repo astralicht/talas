@@ -27,6 +27,22 @@ const envSchema = z
     JWT_REFRESH_SECRET: z.string().min(32).default('development-refresh-secret-change-me-123'),
     CSRF_SECRET: z.string().min(32).default('development-csrf-secret-change-me-12345'),
 
+    // Constitution v2.0.0: access tokens MUST expire within 24 hours and
+    // refresh tokens within 30 days; both TTLs are env-configurable with
+    // bounded validation and default to the constitutional maximums.
+    SESSION_ACCESS_TTL_SECONDS: z.coerce
+      .number()
+      .int()
+      .min(300)
+      .max(24 * 60 * 60)
+      .default(24 * 60 * 60),
+    SESSION_REFRESH_TTL_SECONDS: z.coerce
+      .number()
+      .int()
+      .min(3_600)
+      .max(30 * 24 * 60 * 60)
+      .default(30 * 24 * 60 * 60),
+
     OPENAI_API_KEY: z.string().optional().default(''),
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional().default(''),
     AI_PROVIDER: z.enum(['openai', 'google']).default('openai'),
@@ -50,6 +66,15 @@ const envSchema = z
     E2E_MODE: booleanString.default(false),
   })
   .superRefine((value, ctx) => {
+    if (value.SESSION_REFRESH_TTL_SECONDS < value.SESSION_ACCESS_TTL_SECONDS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SESSION_REFRESH_TTL_SECONDS'],
+        message:
+          'SESSION_REFRESH_TTL_SECONDS must be greater than or equal to SESSION_ACCESS_TTL_SECONDS',
+      });
+    }
+
     if (value.NODE_ENV !== 'production') return;
 
     const required = [

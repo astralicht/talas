@@ -7,7 +7,15 @@ import { getEnv } from '@/lib/env';
  * bundle can verify JWTs without a database round-trip.
  */
 
-export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
+/**
+ * Constitution v2.0.0: the access-token TTL is environment-configurable with
+ * bounded validation (`SESSION_ACCESS_TTL_SECONDS`, 5 min to 24 h) and defaults
+ * to the constitutional maximum of 24 hours. Read dynamically so middleware,
+ * tokens, and cookies always agree on the currently configured value.
+ */
+export function accessTokenTtlSeconds(): number {
+  return getEnv().SESSION_ACCESS_TTL_SECONDS;
+}
 export const JWT_ISSUER = 'talas';
 export const JWT_AUDIENCE = 'talas-web';
 export const RENEW_NONCE_AUDIENCE = 'talas-renew';
@@ -86,7 +94,8 @@ export async function verifyRenewNonce(
     if (
       payload.type !== 'renew' ||
       typeof payload.next !== 'string' ||
-      !payload.next.startsWith('/')
+      !payload.next.startsWith('/') ||
+      payload.next.startsWith('//')
     ) {
       return null;
     }

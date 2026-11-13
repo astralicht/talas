@@ -3,12 +3,7 @@ import { withTransaction } from '@/lib/db/connection';
 import { RefreshToken } from '@/lib/db/models/refresh-token';
 import { AppError, errors } from '@/lib/http/errors';
 import { hashIdentifier } from '@/lib/logging/correlation';
-import {
-  generateOpaqueToken,
-  hashToken,
-  refreshTokenExpiry,
-  REFRESH_TOKEN_TTL_SECONDS,
-} from './tokens';
+import { generateOpaqueToken, hashToken, refreshTokenExpiry } from './tokens';
 
 export interface RefreshTokenMeta {
   ip?: string | null;
@@ -65,6 +60,7 @@ export async function rotateRefreshToken(
   meta: RefreshTokenMeta = {},
 ): Promise<RotatedRefreshToken> {
   const presentedHash = hashToken(rawToken);
+  let reuseFamilyUserId: Types.ObjectId | null = null;
 
   try {
     return await withTransaction(async (session) => {
@@ -77,11 +73,12 @@ export async function rotateRefreshToken(
       }
 
       if (existing.revokedAt) {
-        await RefreshToken.updateMany(
-          { userId: existing.userId, revokedAt: null },
-          { $set: { revokedAt: new Date() } },
-          { session },
-        ).exec();
+        // Detected reuse of an already-revoked token: the whole token family
+        // for this user must be revoked. The revocation itself MUST happen
+        // outside the rotation transaction — throwing from inside aborts the
+        // transaction and would roll its own revocation back, letting the
+        // stolen token family survive (constitution v2.0.0 reuse-detection).
+        reuseFamilyUserId = existing.userId;
         throw new RefreshTokenReuseError(existing._id.toHexString());
       }
 
@@ -97,6 +94,14 @@ export async function rotateRefreshToken(
       return { ...next, userId: existing.userId.toHexString() };
     });
   } catch (error) {
+    // Runs after the transaction has aborted, so the revocation can never be
+    // rolled back by the reuse error that triggered it.
+    if (reuseFamilyUserId) {
+      await RefreshToken.updateMany(
+        { userId: reuseFamilyUserId, revokedAt: null },
+        { $set: { revokedAt: new Date() } },
+      ).exec();
+    }
     if (error instanceof RefreshTokenReuseError) throw error;
     if (error instanceof AppError) throw error;
     throw errors.unauthorized('Your session has expired. Sign in again.');
@@ -120,8 +125,4 @@ export async function revokeAllForUser(
     session ? { session } : undefined,
   ).exec();
   return result.modifiedCount ?? 0;
-}
-
-export function refreshCookieMaxAge(): number {
-  return REFRESH_TOKEN_TTL_SECONDS;
 }
