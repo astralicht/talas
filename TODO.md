@@ -1,6 +1,9 @@
 # Talas — Continuation Roadmap
 
-Constitution is at v2.0.0 (commit `7e73516`). Nothing below is committed yet unless noted.
+Constitution is at v2.0.0 (commit `7e73516`). **All eight steps are complete
+(Nov 2026).** Gate order note: run e2e LAST — its dev server overwrites
+`.next` chunks, so contract/security suites must run against a fresh
+`pnpm build`.
 
 ## Step 1 — Session TTLs + redirect hardening (DONE in working tree, UNCOMMITTED)
 
