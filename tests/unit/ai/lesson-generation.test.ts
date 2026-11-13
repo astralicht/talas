@@ -30,6 +30,45 @@ describe('generated lesson schema', () => {
     expect(parseGeneratedLesson(validLesson)).toMatchObject({ ok: true, lesson: validLesson });
   });
 
+  it('accepts optional pedagogy fields (v2 grounded-but-pedagogical output)', () => {
+    const pedagogical = {
+      ...validLesson,
+      learningObjectives: [
+        'Explain how light becomes chemical energy',
+        'Describe what the Calvin cycle produces',
+      ],
+      sections: [
+        {
+          ...validLesson.sections[0],
+          misconceptions: ['Plants eat soil for mass'],
+          checkUnderstanding: ['Where in the cell do light reactions occur?'],
+        },
+        validLesson.sections[1],
+      ],
+    };
+    const result = parseGeneratedLesson(pedagogical);
+    expect(result).toMatchObject({ ok: true, lesson: pedagogical });
+  });
+
+  it('rejects pedagogy arrays beyond their bounded sizes', () => {
+    const tooManyObjectives = {
+      ...validLesson,
+      learningObjectives: Array.from({ length: 9 }, (_, index) => `Objective ${index + 1}`),
+    };
+    expect(parseGeneratedLesson(tooManyObjectives).ok).toBe(false);
+
+    const tooManyChecks = {
+      ...validLesson,
+      sections: [
+        {
+          ...validLesson.sections[0],
+          checkUnderstanding: Array.from({ length: 6 }, (_, index) => `Question ${index + 1}`),
+        },
+      ],
+    };
+    expect(parseGeneratedLesson(tooManyChecks).ok).toBe(false);
+  });
+
   it('rejects malformed model output with field-level issues', () => {
     const result = parseGeneratedLesson({ title: '', sections: 'not-an-array' });
     expect(result.ok).toBe(false);
@@ -64,6 +103,43 @@ describe('deterministic Markdown conversion', () => {
     expect(markdown.startsWith('# Injected heading')).toBe(true);
     expect(markdown).not.toContain('## ## Overflow');
   });
+
+  it('renders pedagogy fields deterministically near the top and per section', () => {
+    const pedagogical = {
+      title: 'Photosynthesis',
+      summary: 'How plants convert light into chemical energy.',
+      learningObjectives: ['Explain how light becomes chemical energy'],
+      sections: [
+        {
+          heading: 'Light reactions',
+          contentMarkdown: 'Light reactions happen in the thylakoids.',
+          misconceptions: ['Plants eat soil for mass'],
+          checkUnderstanding: ['Where in the cell do light reactions occur?'],
+        },
+        {
+          heading: 'Calvin cycle',
+          contentMarkdown: 'The Calvin cycle fixes carbon dioxide.',
+          checkUnderstanding: ['What does the Calvin cycle produce?'],
+        },
+      ],
+    };
+    const first = lessonToMarkdown(pedagogical);
+    const second = lessonToMarkdown({ ...pedagogical });
+    expect(first).toBe(second);
+
+    const objectivesIndex = first.indexOf('## Learning objectives');
+    const firstSectionIndex = first.indexOf('## Light reactions');
+    expect(objectivesIndex).toBeGreaterThan(-1);
+    expect(objectivesIndex).toBeLessThan(firstSectionIndex);
+    expect(first).toContain('- Explain how light becomes chemical energy');
+    expect(first).toContain('### Check your understanding');
+    expect(first).toContain('- Where in the cell do light reactions occur?');
+    expect(first).toContain('### Common misconceptions');
+    expect(first).toContain('- Plants eat soil for mass');
+    expect(first.indexOf('### Common misconceptions')).toBeLessThan(
+      first.indexOf('### Check your understanding'),
+    );
+  });
 });
 
 describe('lesson generation', () => {
@@ -93,7 +169,7 @@ describe('lesson generation', () => {
       const output = await generateLesson(input);
       expect(output.provider).toBe('openai');
       expect(output.markdown).toContain('# Photosynthesis');
-      expect(output.promptVersion).toBe('v1');
+      expect(output.promptVersion).toBe('v2');
     } finally {
       setGenerateObjectForTests(null);
     }

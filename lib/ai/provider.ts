@@ -1,11 +1,12 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { LanguageModel } from 'ai';
 import { getEnv } from '@/lib/env';
 
 export interface LessonModel {
   model: LanguageModel;
-  provider: 'openai' | 'google';
+  provider: 'openai' | 'google' | 'opengo';
   modelId: string;
 }
 
@@ -13,6 +14,13 @@ export interface LessonModelCandidates {
   primary: LessonModel;
   fallback: LessonModel | null;
 }
+
+/**
+ * OpenCode Go inference endpoint (chat-completions compatible; the SDK appends
+ * `/chat/completions`). Go-subscription models only — free-tier OpenCode
+ * models answer with HTTP 403 to external clients.
+ */
+const OPENGO_BASE_URL = 'https://opencode.ai/inference/go/openai/v1';
 
 export function lessonModelCandidates(): LessonModelCandidates {
   const env = getEnv();
@@ -26,6 +34,30 @@ export function lessonModelCandidates(): LessonModelCandidates {
         provider: 'google',
         modelId: env.AI_MODEL_GOOGLE,
       },
+      fallback: env.OPENAI_API_KEY
+        ? {
+            model: createOpenAI({ apiKey: env.OPENAI_API_KEY })(env.AI_MODEL_OPENAI),
+            provider: 'openai',
+            modelId: env.AI_MODEL_OPENAI,
+          }
+        : null,
+    };
+  }
+
+  if (provider === 'opengo') {
+    const opengo = createOpenAICompatible({
+      baseURL: OPENGO_BASE_URL,
+      apiKey: env.OPENCODE_API_KEY,
+      name: 'opengo',
+    });
+    return {
+      primary: {
+        model: opengo(env.AI_MODEL_OPENGO),
+        provider: 'opengo',
+        modelId: env.AI_MODEL_OPENGO,
+      },
+      // The fallback chain is unchanged: OpenAI/Google remain fallbacks when
+      // their keys are set, even though the Go subscription is the primary.
       fallback: env.OPENAI_API_KEY
         ? {
             model: createOpenAI({ apiKey: env.OPENAI_API_KEY })(env.AI_MODEL_OPENAI),

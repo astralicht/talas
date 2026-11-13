@@ -45,10 +45,12 @@ const envSchema = z
 
     OPENAI_API_KEY: z.string().optional().default(''),
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional().default(''),
-    AI_PROVIDER: z.enum(['openai', 'google']).default('openai'),
+    AI_PROVIDER: z.enum(['openai', 'google', 'opengo']).default('openai'),
     AI_DAILY_BUDGET_USD: z.coerce.number().positive().default(2),
     AI_MODEL_OPENAI: z.string().default('gpt-4o'),
     AI_MODEL_GOOGLE: z.string().default('gemini-2.0-flash'),
+    OPENCODE_API_KEY: z.string().optional().default(''),
+    AI_MODEL_OPENGO: z.string().default('glm-5.3'),
     AI_FAULT_INJECTION: booleanString.default(false),
     AI_FAKE_LESSON: booleanString.default(false),
 
@@ -103,6 +105,13 @@ const envSchema = z
         code: 'custom',
         path: ['GOOGLE_GENERATIVE_AI_API_KEY'],
         message: 'GOOGLE_GENERATIVE_AI_API_KEY is required when AI_PROVIDER is google',
+      });
+    }
+    if (value.AI_PROVIDER === 'opengo' && !value.OPENCODE_API_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['OPENCODE_API_KEY'],
+        message: 'OPENCODE_API_KEY is required when AI_PROVIDER is opengo',
       });
     }
   });

@@ -4,6 +4,7 @@ export const generatedLessonSchema = z
   .object({
     title: z.string().min(1).max(200),
     summary: z.string().min(1).max(2_000),
+    learningObjectives: z.array(z.string().min(1).max(500)).max(8).optional(),
     sections: z
       .array(
         z
@@ -11,6 +12,8 @@ export const generatedLessonSchema = z
             heading: z.string().min(1).max(200),
             contentMarkdown: z.string().min(1).max(20_000),
             keyPoints: z.array(z.string().min(1).max(500)).max(20).optional(),
+            misconceptions: z.array(z.string().min(1).max(500)).max(5).optional(),
+            checkUnderstanding: z.array(z.string().min(1).max(500)).max(5).optional(),
           })
           .strict(),
       )
