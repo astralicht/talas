@@ -126,7 +126,7 @@ export function UploadForm({ verified }: { verified: boolean }) {
   return (
     <form className="space-y-4" onSubmit={onSubmit}>
       <div className="space-y-1">
-        <label htmlFor="material-file" className="text-sm font-medium text-slate-800">
+        <label htmlFor="material-file" className="text-sm font-medium text-foreground">
           Study material
         </label>
         <input
@@ -137,9 +137,9 @@ export function UploadForm({ verified }: { verified: boolean }) {
           accept=".pdf,.docx,.md,.markdown,.txt"
           onChange={onFileSelected}
           disabled={!verified || pending}
-          className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-brand-700"
+          className="block w-full rounded-md border border-input bg-card px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-brand-700"
         />
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-muted-foreground">
           PDF, DOCX, Markdown, or plain text, up to 25 MB.
         </p>
       </div>
@@ -152,7 +152,7 @@ export function UploadForm({ verified }: { verified: boolean }) {
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-muted-foreground">
             {stage === 'presigning' && 'Requesting upload…'}
             {stage === 'uploading' && 'Uploading file…'}
             {stage === 'confirming' && 'Verifying and processing…'}
@@ -161,7 +161,7 @@ export function UploadForm({ verified }: { verified: boolean }) {
       ) : null}
 
       {error ? (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="text-sm text-red-700 dark:text-red-300">
           {error}
         </p>
       ) : null}

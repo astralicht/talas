@@ -135,7 +135,7 @@ export function NewLessonForm({
   return (
     <form className="space-y-5" onSubmit={onSubmit} noValidate>
       <div className="space-y-1">
-        <label htmlFor="lesson-title" className="text-sm font-medium text-slate-800">
+        <label htmlFor="lesson-title" className="text-sm font-medium text-foreground">
           Lesson title
         </label>
         <input
@@ -148,21 +148,21 @@ export function NewLessonForm({
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           placeholder="e.g. Photosynthesis foundations"
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="w-full rounded-md border border-input px-3 py-2 text-sm"
           disabled={pending}
         />
       </div>
 
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-slate-800">
+        <legend className="text-sm font-medium text-foreground">
           Source materials (choose 1–5)
         </legend>
         {materials.length === 0 ? (
-          <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
             No processed materials yet — a material is usable once its status is Ready.
           </p>
         ) : (
-          <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
+          <ul className="divide-y divide-border rounded-md border border-border">
             {materials.map((material) => (
               <li key={material.id} className="flex items-center gap-3 px-3 py-2">
                 <input
@@ -175,7 +175,7 @@ export function NewLessonForm({
                 />
                 <label
                   htmlFor={`material-${material.id}`}
-                  className="min-w-0 flex-1 truncate text-sm text-slate-800"
+                  className="min-w-0 flex-1 truncate text-sm text-foreground"
                 >
                   {material.originalFilename}
                 </label>
@@ -185,9 +185,9 @@ export function NewLessonForm({
         )}
       </fieldset>
 
-      {progress ? <p className="text-sm text-slate-600">{progress}</p> : null}
+      {progress ? <p className="text-sm text-muted-foreground">{progress}</p> : null}
       {error ? (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:text-red-300 dark:bg-red-950/40">
           {error}
         </p>
       ) : null}

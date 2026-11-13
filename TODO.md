@@ -218,12 +218,21 @@ unit+security, 30/30 integration, 38/38 contract, 11/11 e2e.
 
 ## Step 7 — Dark mode (semantic tokens)
 
-- [ ] next-themes + ThemeProvider + suppressHydrationWarning on html (app/layout.tsx)
-- [ ] app/globals.css: @custom-variant dark; :root/.dark semantic vars
-      (--background, --foreground, --card, --muted, --border...); color-scheme light dark
-- [ ] Refactor ~15 components from hardcoded slate classes to semantic classes;
-      dark:prose-invert for MarkdownRenderer
-- [ ] Sun/Moon toggle in components/auth/session-nav.tsx
+- [x] next-themes + ThemeProvider + suppressHydrationWarning on html (app/layout.tsx)
+- [x] app/globals.css: @custom-variant dark; :root/.dark semantic vars
+      (--background, --foreground, --card, --muted, --border, --input,
+      --muted-foreground via @theme inline); color-scheme light dark
+- [x] Refactor ~15 components from hardcoded slate classes to semantic classes
+      (34 files swept: bg-white→bg-card, bg-slate-50→bg-background,
+      text-slate-*/border-slate-*/divide-* → semantic equivalents); status
+      badges and banners gained dark:* variants (emerald/red/amber/indigo/sky
+      → dark:bg-*-950/dark:text-*-300); dark:prose-invert for MarkdownRenderer
+- [x] Sun/Moon toggle in components/auth/session-nav.tsx
+      (components/auth/theme-toggle.tsx, hydration-safe mounted guard)
+
+Step 7 notes (2026-11-13): dialog scrims (bg-slate-900/40) and text-white
+accents are intentionally theme-neutral. Gates: typecheck, lint, 115/115
+unit+security, 30/30 integration, 38/38 contract, 11/11 e2e.
 
 ## Step 8 — Gates & bookkeeping
 

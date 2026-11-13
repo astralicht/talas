@@ -28,7 +28,7 @@ export function DeleteMaterialDialog({ materialId }: { materialId: string }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
+        className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 dark:bg-red-950/40 dark:border-red-800 dark:text-red-300"
       >
         Delete material
       </button>
@@ -40,17 +40,17 @@ export function DeleteMaterialDialog({ materialId }: { materialId: string }) {
           aria-labelledby="delete-material-title"
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
         >
-          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-lg">
-            <h2 id="delete-material-title" className="text-base font-semibold text-slate-900">
+          <div className="w-full max-w-sm rounded-lg bg-card p-6 shadow-lg">
+            <h2 id="delete-material-title" className="text-base font-semibold text-foreground">
               Delete this material?
             </h2>
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 text-sm text-muted-foreground">
               The stored file is removed and the material is detached from every lesson that uses it.
               Lessons built only from this material are deleted; lessons built from several materials
               keep their remaining sources. This cannot be undone.
             </p>
             {error ? (
-              <p role="alert" className="mt-3 text-sm text-red-700">
+              <p role="alert" className="mt-3 text-sm text-red-700 dark:text-red-300">
                 {error}
               </p>
             ) : null}
@@ -58,7 +58,7 @@ export function DeleteMaterialDialog({ materialId }: { materialId: string }) {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
+                className="rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground"
               >
                 Cancel
               </button>

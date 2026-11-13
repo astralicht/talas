@@ -19,8 +19,8 @@ export default async function MaterialsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Materials</h1>
-          <p className="text-sm text-slate-600">Documents only you can see.</p>
+          <h1 className="text-2xl font-semibold text-foreground">Materials</h1>
+          <p className="text-sm text-muted-foreground">Documents only you can see.</p>
         </div>
         {user.emailVerified ? (
           <Link
@@ -32,9 +32,9 @@ export default async function MaterialsPage() {
         ) : null}
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         {data.length === 0 ? (
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-muted-foreground">
             No materials yet.{' '}
             {user.emailVerified ? (
               <Link href="/materials/new" className="font-medium text-brand-600 hover:underline">

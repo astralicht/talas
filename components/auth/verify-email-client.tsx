@@ -63,17 +63,17 @@ export function VerifyEmailClient() {
       }
     >
       <div className="space-y-4">
-        {state === 'verifying' ? <p className="text-sm text-slate-600">Verifying…</p> : null}
+        {state === 'verifying' ? <p className="text-sm text-muted-foreground">Verifying…</p> : null}
         <FormNotice message={state === 'verified' ? message : null} />
         <FormError message={state === 'failed' ? message : null} />
         {!token && state !== 'verified' ? (
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-muted-foreground">
             Open the link from your verification email, or request a new one below.
           </p>
         ) : null}
         <form className="space-y-3" onSubmit={resend}>
           <div className="space-y-1">
-            <label htmlFor="resend-email" className="text-sm font-medium text-slate-800">
+            <label htmlFor="resend-email" className="text-sm font-medium text-foreground">
               Email
             </label>
             <input
@@ -83,14 +83,14 @@ export function VerifyEmailClient() {
               autoComplete="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border border-input px-3 py-2 text-sm"
             />
           </div>
           <button
             type="submit"
             disabled={resending}
             aria-busy={resending}
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
           >
             {resending ? <InlineSpinner label="Resending…" /> : 'Resend verification email'}
           </button>

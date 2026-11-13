@@ -13,7 +13,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
   const safe = useMemo(() => sanitizeMarkdown(content), [content]);
 
   return (
-    <div className="markdown-body prose prose-slate max-w-none">
+    <div className="markdown-body prose prose-slate dark:prose-invert max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -33,7 +33,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
               alt={alt ?? 'Figure'}
               // FR-008: responsive figures; the sources are tenant-scoped
               // cookie-authenticated routes (Cache-Control private).
-              className="mx-auto max-w-full h-auto rounded-md border border-slate-200 dark:border-slate-700"
+              className="mx-auto max-w-full h-auto rounded-md border border-border dark:border-slate-700"
               loading="lazy"
             />
           ),

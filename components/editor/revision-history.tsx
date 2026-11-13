@@ -55,20 +55,20 @@ export function RevisionHistory({
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        className="rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-background"
       >
         {open ? 'Hide history' : 'Revision history'}
       </button>
 
       {open ? (
-        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <div className="mt-3 rounded-lg border border-border bg-background p-4">
           {revisions.length === 0 ? (
-            <p className="text-sm text-slate-600">No revisions yet.</p>
+            <p className="text-sm text-muted-foreground">No revisions yet.</p>
           ) : (
             <ul className="space-y-2">
               {revisions.map((revision) => (
                 <li key={revision.id} className="flex items-center justify-between gap-3">
-                  <span className="text-sm text-slate-700">
+                  <span className="text-sm text-foreground">
                     v{revision.version} · {revision.authorType === 'system' ? 'Generated' : 'Edited'} ·{' '}
                     {new Date(revision.createdAt).toLocaleString()}
                     {revision.version === currentVersion ? ' (current)' : ''}
@@ -78,7 +78,7 @@ export function RevisionHistory({
                       type="button"
                       disabled={busyVersion !== null}
                       onClick={() => void onRestore(revision)}
-                      className="whitespace-nowrap rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-white disabled:opacity-60"
+                      className="whitespace-nowrap rounded-md border border-input px-2 py-1 text-xs font-medium text-foreground hover:bg-card disabled:opacity-60"
                     >
                       {busyVersion === revision.version ? 'Restoring…' : `Restore v${revision.version}`}
                     </button>

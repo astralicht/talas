@@ -48,7 +48,7 @@ export function RegisterForm() {
     >
       <form className="space-y-4" onSubmit={onSubmit} noValidate>
         <div className="space-y-1">
-          <label htmlFor="email" className="text-sm font-medium text-slate-800">
+          <label htmlFor="email" className="text-sm font-medium text-foreground">
             Email
           </label>
           <input
@@ -59,11 +59,11 @@ export function RegisterForm() {
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-input px-3 py-2 text-sm"
           />
         </div>
         <div className="space-y-1">
-          <label htmlFor="password" className="text-sm font-medium text-slate-800">
+          <label htmlFor="password" className="text-sm font-medium text-foreground">
             Password
           </label>
           <input
@@ -77,9 +77,9 @@ export function RegisterForm() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             aria-describedby="password-help"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-input px-3 py-2 text-sm"
           />
-          <p id="password-help" className="text-xs text-slate-500">
+          <p id="password-help" className="text-xs text-muted-foreground">
             Use at least 12 characters.
           </p>
         </div>

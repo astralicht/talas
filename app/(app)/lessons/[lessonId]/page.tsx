@@ -50,13 +50,13 @@ export default async function LessonViewPage({
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/lessons" className="text-sm text-slate-600 hover:text-slate-900">
+        <Link href="/lessons" className="text-sm text-muted-foreground hover:text-foreground">
           ← Lessons
         </Link>
         <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-2xl font-semibold break-words text-slate-900">{lesson.title}</h1>
-            <p className="mt-1 text-sm text-slate-500">
+            <h1 className="text-2xl font-semibold break-words text-foreground">{lesson.title}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
               Version {lesson.version}
               {lesson.updatedAt
                 ? ` · updated ${lesson.updatedAt.toLocaleString('en-US', {
@@ -70,7 +70,7 @@ export default async function LessonViewPage({
             {materialDownload ? (
               <a
                 href={`/api/materials/${primaryMaterial!._id.toHexString()}/download`}
-                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-md border border-input bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-background"
                 data-testid="download-material"
               >
                 Download original material
@@ -98,7 +98,7 @@ export default async function LessonViewPage({
       </div>
 
       {currentSourceIds.length > 0 ? (
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-muted-foreground">
           Built from{' '}
           {readyMaterials
             .filter((entry) => currentSourceIds.includes(entry._id.toHexString()))
@@ -116,7 +116,7 @@ export default async function LessonViewPage({
         </p>
       ) : null}
 
-      <article className="rounded-xl border border-slate-200 bg-white p-6 sm:p-8">
+      <article className="rounded-xl border border-border bg-card p-6 sm:p-8">
         <MarkdownRenderer content={lesson.contentMarkdown} />
       </article>
     </div>

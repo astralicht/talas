@@ -55,17 +55,17 @@ export default async function MaterialDetailPage({
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/materials" className="text-sm text-slate-600 hover:text-slate-900">
+        <Link href="/materials" className="text-sm text-muted-foreground hover:text-foreground">
           ← Materials
         </Link>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold break-words text-slate-900">
+          <h1 className="text-2xl font-semibold break-words text-foreground">
             {material!.originalFilename}
           </h1>
           {DOWNLOADABLE_STATUSES.has(material!.status) ? (
             <a
               href={`/api/materials/${materialId}/download`}
-              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-md border border-input bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-background"
             >
               Download original
             </a>
@@ -74,8 +74,8 @@ export default async function MaterialDetailPage({
       </div>
 
       {lesson ? (
-        <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-6">
-          <p className="text-sm text-emerald-900">
+        <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 dark:border-emerald-800 dark:bg-emerald-950/40">
+          <p className="text-sm text-emerald-900 dark:text-emerald-300">
             A lesson built from this material is ready.
           </p>
           <Link
@@ -87,7 +87,7 @@ export default async function MaterialDetailPage({
         </section>
       ) : material!.status === 'ready' ? (
         <section className="rounded-xl border border-brand-200 bg-brand-50 p-6">
-          <p className="text-sm text-slate-800">
+          <p className="text-sm text-foreground">
             This document is processed and ready to be used in a lesson.
           </p>
           <Link
@@ -100,8 +100,8 @@ export default async function MaterialDetailPage({
         </section>
       ) : null}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-base font-semibold text-slate-900">Processing</h2>
+      <section className="rounded-xl border border-border bg-card p-6">
+        <h2 className="mb-4 text-base font-semibold text-foreground">Processing</h2>
         <MaterialStatusPanels materialId={materialId} initial={initial} />
       </section>
     </div>

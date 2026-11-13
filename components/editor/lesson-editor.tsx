@@ -177,7 +177,7 @@ export function LessonEditor({
       ) : null}
 
       <div className="space-y-1">
-        <label htmlFor="lesson-title" className="text-sm font-medium text-slate-800">
+        <label htmlFor="lesson-title" className="text-sm font-medium text-foreground">
           Title
         </label>
         <input
@@ -185,7 +185,7 @@ export function LessonEditor({
           value={title}
           onChange={onTitleChange}
           maxLength={200}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="w-full rounded-md border border-input px-3 py-2 text-sm"
         />
       </div>
 
@@ -224,7 +224,7 @@ export function LessonEditor({
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-1">
-          <label htmlFor="lesson-content" className="text-sm font-medium text-slate-800">
+          <label htmlFor="lesson-content" className="text-sm font-medium text-foreground">
             Content
           </label>
           <textarea
@@ -235,17 +235,17 @@ export function LessonEditor({
             onKeyDown={onKeyDown}
             spellCheck
             rows={24}
-            className="h-[32rem] w-full resize-y rounded-md border border-slate-300 px-3 py-2 font-mono text-sm"
+            className="h-[32rem] w-full resize-y rounded-md border border-input px-3 py-2 font-mono text-sm"
           />
         </div>
         <div className="space-y-1">
-          <span id="preview-label" className="text-sm font-medium text-slate-800">
+          <span id="preview-label" className="text-sm font-medium text-foreground">
             Preview
           </span>
           <div
             role="region"
             aria-labelledby="preview-label"
-            className="h-[32rem] overflow-auto rounded-md border border-slate-200 bg-white px-4 py-3"
+            className="h-[32rem] overflow-auto rounded-md border border-border bg-card px-4 py-3"
           >
             <MarkdownRenderer content={content} />
           </div>
@@ -253,7 +253,7 @@ export function LessonEditor({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p aria-live="polite" className="text-sm text-slate-600">
+        <p aria-live="polite" className="text-sm text-muted-foreground">
           {autosave.state.status === 'saving' && 'Saving…'}
           {autosave.state.status === 'saved' &&
             `Saved · v${version}${autosave.state.lastSavedAt ? ` · ${new Date(autosave.state.lastSavedAt).toLocaleTimeString()}` : ''}`}
@@ -301,7 +301,7 @@ function ToolbarButton({
       aria-label={`${label}${shortcut ? ` (${shortcut})` : ''}`}
       title={shortcut ? `${label} (${shortcut})` : label}
       onClick={onClick}
-      className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+      className="rounded-md border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-background"
     >
       {children}
     </button>

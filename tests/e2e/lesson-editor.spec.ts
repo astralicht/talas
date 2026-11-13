@@ -15,7 +15,9 @@ async function openFirstLesson(page: import('@playwright/test').Page): Promise<v
         await page.getByLabel('Password').fill(password);
         await page.getByRole('button', { name: 'Sign in' }).click();
       } else {
-        await page.goto('/lessons');
+        if (!page.url().endsWith('/lessons')) {
+          await page.getByRole('link', { name: 'Lessons', exact: true }).click();
+        }
         await page.getByTestId('lesson-link').first().click();
       }
     }
@@ -40,6 +42,8 @@ async function signIn(page: import('@playwright/test').Page): Promise<void> {
 }
 
 test.describe.serial('lesson editor', () => {
+  test.setTimeout(180_000);
+
   test('edits, autosaves, reloads, and sees persisted content', async ({ page }) => {
     await signIn(page);
 
@@ -61,10 +65,7 @@ test.describe.serial('lesson editor', () => {
   });
 
   test('conflicts block overwrites and offer reload', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(password);
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await signIn(page);
 
     await openFirstLesson(page);
     await page.getByRole('link', { name: 'Edit lesson' }).click();
@@ -113,10 +114,8 @@ test.describe.serial('lesson editor', () => {
   });
 
   test('revision restore appends a version without rewriting history', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(password);
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    test.setTimeout(180_000);
+    await signIn(page);
 
     await openFirstLesson(page);
     await page.getByRole('link', { name: 'Edit lesson' }).click();

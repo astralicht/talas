@@ -25,16 +25,16 @@ export default async function NewLessonPage({
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/lessons" className="text-sm text-slate-600 hover:text-slate-900">
+        <Link href="/lessons" className="text-sm text-muted-foreground hover:text-foreground">
           ← Lessons
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold text-slate-900">New lesson</h1>
-        <p className="text-sm text-slate-600">
+        <h1 className="mt-2 text-2xl font-semibold text-foreground">New lesson</h1>
+        <p className="text-sm text-muted-foreground">
           Name the lesson and pick the processed documents it should build on.
         </p>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <NewLessonForm
           materials={ready.map((entry) => ({
             id: entry._id.toHexString(),

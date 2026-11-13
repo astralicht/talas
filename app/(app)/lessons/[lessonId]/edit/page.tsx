@@ -42,11 +42,11 @@ export default async function LessonEditorPage({
         <div>
           <Link
             href={`/lessons/${lessonId}`}
-            className="text-sm text-slate-600 hover:text-slate-900"
+            className="text-sm text-muted-foreground hover:text-foreground"
           >
             ← Back to lesson
           </Link>
-          <h1 className="mt-2 text-2xl font-semibold text-slate-900">Edit lesson</h1>
+          <h1 className="mt-2 text-2xl font-semibold text-foreground">Edit lesson</h1>
         </div>
         <DeleteLessonDialog lessonId={lessonId} />
       </div>

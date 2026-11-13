@@ -46,11 +46,11 @@ export function ResetPasswordForm() {
       }
     >
       {!token ? (
-        <p className="text-sm text-slate-600">Open the reset link from your email to continue.</p>
+        <p className="text-sm text-muted-foreground">Open the reset link from your email to continue.</p>
       ) : null}
       <form className="space-y-4" onSubmit={onSubmit} noValidate>
         <div className="space-y-1">
-          <label htmlFor="password" className="text-sm font-medium text-slate-800">
+          <label htmlFor="password" className="text-sm font-medium text-foreground">
             New password
           </label>
           <input
@@ -62,9 +62,9 @@ export function ResetPasswordForm() {
             required
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-input px-3 py-2 text-sm"
           />
-          <p className="text-xs text-slate-500">Use at least 12 characters.</p>
+          <p className="text-xs text-muted-foreground">Use at least 12 characters.</p>
         </div>
         <FormError message={error} />
         <FormNotice message={notice} />

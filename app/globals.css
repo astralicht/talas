@@ -1,6 +1,9 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
+/* Class-based dark mode driven by next-themes (attribute="class"). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --color-brand-50: #eef4ff;
@@ -10,8 +13,41 @@
   --color-brand-700: #2647a5;
 }
 
+/*
+ * Semantic surface tokens (specs/005 step 7): components use these instead of
+ * hardcoded slate classes so both themes come from one place. Brand accents
+ * stay fixed — they carry enough contrast on both surfaces.
+ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+}
+
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
+  --background: #f8fafc; /* slate-50 */
+  --foreground: #0f172a; /* slate-900 */
+  --card: #ffffff;
+  --muted: #f1f5f9; /* slate-100 */
+  --muted-foreground: #64748b; /* slate-500 */
+  --border: #e2e8f0; /* slate-200 */
+  --input: #cbd5e1; /* slate-300 */
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #020617; /* slate-950 */
+  --foreground: #f1f5f9; /* slate-100 */
+  --card: #0f172a; /* slate-900 */
+  --muted: #1e293b; /* slate-800 */
+  --muted-foreground: #94a3b8; /* slate-400 */
+  --border: #1e293b; /* slate-800 */
+  --input: #334155; /* slate-700 */
 }
 
 html,
@@ -33,7 +69,7 @@ body {
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply bg-background text-foreground antialiased;
 }
 
 *:focus-visible {

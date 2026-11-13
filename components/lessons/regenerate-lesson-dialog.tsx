@@ -114,7 +114,7 @@ export function RegenerateLessonDialog({
         onClick={() => setOpen(true)}
         disabled={pending}
         data-testid="regenerate-lesson"
-        className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+        className="rounded-md border border-input bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-background disabled:opacity-60"
       >
         Regenerate lesson
       </button>
@@ -123,7 +123,7 @@ export function RegenerateLessonDialog({
         <p
           role="status"
           data-testid="regenerate-banner"
-          className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+          className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:text-emerald-300 dark:bg-emerald-950/40"
         >
           Version {version + 1} generated.
         </p>
@@ -136,18 +136,18 @@ export function RegenerateLessonDialog({
           aria-labelledby="regenerate-title"
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
         >
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
-            <h2 id="regenerate-title" className="text-base font-semibold text-slate-900">
+          <div className="w-full max-w-md rounded-lg bg-card p-6 shadow-lg">
+            <h2 id="regenerate-title" className="text-base font-semibold text-foreground">
               Regenerate this lesson?
             </h2>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-muted-foreground">
               Pick the documents it should be built from. The current version is kept in
               history as a revision.
             </p>
 
             <fieldset className="mt-4 space-y-2">
-              <legend className="text-sm font-medium text-slate-800">Source materials</legend>
-              <ul className="max-h-60 divide-y divide-slate-100 overflow-y-auto rounded-md border border-slate-200">
+              <legend className="text-sm font-medium text-foreground">Source materials</legend>
+              <ul className="max-h-60 divide-y divide-border overflow-y-auto rounded-md border border-border">
                 {readyMaterials.map((material) => (
                   <li key={material.id} className="flex items-center gap-3 px-3 py-2">
                     <input
@@ -160,7 +160,7 @@ export function RegenerateLessonDialog({
                     />
                     <label
                       htmlFor={`regen-${material.id}`}
-                      className="min-w-0 flex-1 truncate text-sm text-slate-800"
+                      className="min-w-0 flex-1 truncate text-sm text-foreground"
                     >
                       {material.originalFilename}
                     </label>
@@ -169,9 +169,9 @@ export function RegenerateLessonDialog({
               </ul>
             </fieldset>
 
-            {progress ? <p className="mt-3 text-sm text-slate-600">{progress}</p> : null}
+            {progress ? <p className="mt-3 text-sm text-muted-foreground">{progress}</p> : null}
             {error ? (
-              <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+              <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:text-red-300 dark:bg-red-950/40">
                 {error}
               </p>
             ) : null}
@@ -184,7 +184,7 @@ export function RegenerateLessonDialog({
                   setError(null);
                 }}
                 disabled={pending}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
+                className="rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground"
               >
                 Cancel
               </button>

@@ -43,14 +43,14 @@ export function MaterialStatusPanels({ materialId, initial }: StatusPanelsProps)
       <div className="flex items-center gap-3">
         <StatusBadge status={material.status} />
         {ACTIVE_STATUS_LABELS.has(material.status) ? (
-          <span className="text-sm text-slate-600">
+          <span className="text-sm text-muted-foreground">
             {STAGE_LABELS[material.status] ?? 'Working…'}
           </span>
         ) : null}
       </div>
 
       {material.failureMessage ? (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:text-red-300 dark:bg-red-950/40">
           {material.failureMessage}
           {material.failureCode && RETRYABLE_CODES.has(material.failureCode) ? ' This failure can be retried.' : ''}
         </p>
@@ -94,7 +94,7 @@ function RetryButton({ materialId }: { materialId: string }) {
         {pending ? 'Retrying…' : 'Retry processing'}
       </button>
       {error ? (
-        <p role="alert" className="mt-2 text-sm text-red-700">
+        <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-300">
           {error}
         </p>
       ) : null}

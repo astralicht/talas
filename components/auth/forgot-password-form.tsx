@@ -40,7 +40,7 @@ export function ForgotPasswordForm() {
     >
       <form className="space-y-4" onSubmit={onSubmit} noValidate>
         <div className="space-y-1">
-          <label htmlFor="email" className="text-sm font-medium text-slate-800">
+          <label htmlFor="email" className="text-sm font-medium text-foreground">
             Email
           </label>
           <input
@@ -50,7 +50,7 @@ export function ForgotPasswordForm() {
             autoComplete="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-input px-3 py-2 text-sm"
           />
         </div>
         <FormError message={error} />

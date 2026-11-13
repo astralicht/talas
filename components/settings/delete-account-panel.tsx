@@ -32,19 +32,19 @@ export function DeleteAccountPanel() {
 
   return (
     <form className="space-y-3" onSubmit={onDelete}>
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-muted-foreground">
         Deleting your account ends access immediately and removes your materials, lessons, and
         revisions. This cannot be undone.
       </p>
       <div className="space-y-1">
-        <label htmlFor="delete-confirmation" className="text-sm font-medium text-slate-800">
+        <label htmlFor="delete-confirmation" className="text-sm font-medium text-foreground">
           Type DELETE to confirm
         </label>
         <input
           id="delete-confirmation"
           value={confirmation}
           onChange={(event) => setConfirmation(event.target.value)}
-          className="w-full max-w-xs rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="w-full max-w-xs rounded-md border border-input px-3 py-2 text-sm"
         />
       </div>
       {error ? (

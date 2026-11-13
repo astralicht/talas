@@ -12,10 +12,10 @@ export default async function HomePage() {
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-8 px-6 py-16">
       <div className="space-y-4">
         <p className="text-brand-600 text-sm font-semibold tracking-wide uppercase">Talas</p>
-        <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
+        <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
           Turn study material into lessons you can shape.
         </h1>
-        <p className="max-w-xl text-lg text-slate-600">
+        <p className="max-w-xl text-lg text-muted-foreground">
           Upload a PDF, DOCX, Markdown, or text document. Talas drafts a structured Markdown lesson
           that you can edit, revise, and keep.
         </p>
@@ -29,7 +29,7 @@ export default async function HomePage() {
         </Link>
         <Link
           href="/login"
-          className="rounded-md border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100"
+          className="rounded-md border border-input bg-card px-5 py-3 text-sm font-medium text-foreground hover:bg-muted"
         >
           Sign in
         </Link>

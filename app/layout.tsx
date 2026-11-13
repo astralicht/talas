@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { ThemeProvider } from '@/components/theme-provider';
 import { RouteProgress } from '@/components/ui/route-progress';
 
 export const metadata: Metadata = {
@@ -13,10 +14,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen">
-        <RouteProgress />
-        {children}
+        <ThemeProvider>
+          <RouteProgress />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );
