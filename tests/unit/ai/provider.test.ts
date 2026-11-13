@@ -27,7 +27,7 @@ describe('lesson model candidates', () => {
     withEnv({ AI_PROVIDER: 'opengo', OPENCODE_API_KEY: 'go-key-test' });
     const candidates = lessonModelCandidates();
     expect(candidates.primary.provider).toBe('opengo');
-    expect(candidates.primary.modelId).toBe('glm-5.3');
+    expect(candidates.primary.modelId).toBe('glm-5.3-flash');
     expect(candidates.primary.model).toBeTruthy();
     expect(candidates.fallback).toBeNull();
   });

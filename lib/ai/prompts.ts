@@ -34,10 +34,16 @@ export function buildLessonSystemPrompt(): string {
     'Teach: open with learning objectives, explain from first principles in',
     'plain language, show why the material matters, address common',
     'misconceptions, and close sections with self-check questions.',
-    'Return a concise title (max 200 characters), a one-paragraph summary (max 2000 characters),',
-    'and between one and thirty sections. Each section needs a heading and Markdown content.',
-    'Prefer short paragraphs, lists, and tables where they aid comprehension.',
-    'Write in English using GitHub-flavored Markdown.',
+    'Output contract: respond with one JSON object and nothing else, using',
+    'exactly these keys: title (string, max 200 characters), summary (string,',
+    'max 2000 characters), learningObjectives (array of at most 8 short',
+    'strings), sections (array of 3 to 8 objects, each with heading,',
+    'contentMarkdown, keyPoints, misconceptions, checkUnderstanding; the last',
+    'three are optional arrays of short strings, at most 20 / 5 / 5 items).',
+    'Keep each contentMarkdown under 1200 characters and always close the JSON',
+    'object before the output limit. Prefer short paragraphs, lists, and',
+    'tables where they aid comprehension. Write in English using',
+    'GitHub-flavored Markdown.',
   ].join(' ');
 }
 

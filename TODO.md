@@ -44,9 +44,10 @@ required (Bearer key against https://opencode.ai/inference/go/...).
 - [x] pnpm add @ai-sdk/openai-compatible (1.0.x line — the 3.x line targets the
       newer LanguageModelV4 spec and does not compile against ai@5)
 - [x] lib/env.ts: AI_PROVIDER enum ['openai','google','opengo']; add
-      OPENCODE_API_KEY (default '') + AI_MODEL_OPENGO (default 'glm-5.3');
-      superRefine: OPENCODE_API_KEY required when AI_PROVIDER=opengo
-      (production gate, matching the openai/google convention)
+      OPENCODE_API_KEY (default '') + AI_MODEL_OPENGO (default
+      'glm-5.3-flash'); superRefine: OPENCODE_API_KEY required when
+      AI_PROVIDER=opengo (production gate, matching the openai/google
+      convention)
 - [x] lib/ai/provider.ts: createOpenAICompatible({ baseURL:
       'https://opencode.ai/inference/go/openai/v1', apiKey, name: 'opengo' })
       -> provider(env.AI_MODEL_OPENGO); add 'opengo' to provider union on
@@ -60,11 +61,20 @@ required (Bearer key against https://opencode.ai/inference/go/...).
 - [x] No worker changes; AI_FAKE_LESSON / AI_FAULT_INJECTION hooks unaffected
 - [x] Unit test for the new provider branch (tests/unit/ai/provider.test.ts);
       add the 3 new vars to .env.example
-- [ ] Acceptance: curl https://opencode.ai/inference/go/v1/models with key;
+- [x] Acceptance: curl https://opencode.ai/inference/go/v1/models with key;
       one full upload -> generate run with AI_PROVIDER=opengo. Known risk:
       generateObject over the compatible endpoint — 3-attempt retry +
-      provider fallback absorbs transient failures. (AWAITING USER KEY:
-      set OPENCODE_API_KEY in .env.local, then run the checks.)
+      provider fallback absorbs transient failures. (DONE 2026-11-13:
+      models endpoint 200 on both /go/v1 and /go/openai/v1; live generate
+      run through the app's exact call path produced a schema-valid v2
+      lesson with glm-5.3-flash in ~27 s. Findings wired back into the
+      code: (1) Go requires a stable x-opencode-session header and an
+      identifying user agent — the opengo branch now sends both, minting a
+      fresh session id per generation; (2) glm-5.3 is thinking-only and
+      burns ~2k reasoning tokens from the same locked 4096-token cap,
+      truncating the JSON — AI_MODEL_OPENGO therefore defaults to
+      glm-5.3-flash (0 reasoning tokens, finish=stop, 10x cheaper);
+      glm-5.3 stays selectable via env with that caveat.)
 
 ### Phase 2 — v2 reference-material lesson generation
 

@@ -22,7 +22,9 @@ describe('access tokens', () => {
     expect(claims.email).toBe('a@example.com');
 
     const lifetime = claims.expiresAt - claims.issuedAt;
-    expect(lifetime).toBe(accessTokenTtlSeconds());
+    // iat and exp are stamped from the wall clock in separate jose calls, so a
+    // second boundary between them can add one tick to the observed lifetime.
+    expect([86400, 86401]).toContain(lifetime);
     // Constitution v2.0.0 default: 24 hours.
     expect(accessTokenTtlSeconds()).toBe(24 * 60 * 60);
     expect(JWT_ISSUER).toBe('talas');
