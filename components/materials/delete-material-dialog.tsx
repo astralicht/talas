@@ -45,7 +45,9 @@ export function DeleteMaterialDialog({ materialId }: { materialId: string }) {
               Delete this material?
             </h2>
             <p className="mt-2 text-sm text-slate-600">
-              The stored file, its lesson, and revision history are all removed. This cannot be undone.
+              The stored file is removed and the material is detached from every lesson that uses it.
+              Lessons built only from this material are deleted; lessons built from several materials
+              keep their remaining sources. This cannot be undone.
             </p>
             {error ? (
               <p role="alert" className="mt-3 text-sm text-red-700">

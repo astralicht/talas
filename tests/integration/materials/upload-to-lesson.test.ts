@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestApp, stopTestApp } from '../../helpers/app-server';
 import { registerVerifiedUser, type RegisteredUser } from '../../helpers/client';
 import { confirmMaterial, uploadToFakeS3 } from '../../helpers/storage-fake';
-import { runPipeline, resetPipelineState } from '../../helpers/pipeline';
+import { runPipeline, resetPipelineState, generateLessonForMaterial } from '../../helpers/pipeline';
 import { TEXT_MATERIAL_BYTES } from '../../fixtures/materials';
 import { LessonRepository } from '@/lib/db/repositories/lesson-repository';
 import { LessonRevisionRepository } from '@/lib/db/repositories/lesson-revision-repository';
@@ -21,7 +21,7 @@ afterAll(async () => {
   await stopTestApp();
 });
 
-describe('upload → scan → parse → generate → ready', () => {
+describe('upload → scan → parse → ready; lesson generation on request', () => {
   it('produces exactly one material, one lesson, and one initial revision', async () => {
     const { session } = user;
     const upload = await uploadToFakeS3(
@@ -39,6 +39,9 @@ describe('upload → scan → parse → generate → ready', () => {
 
     // The worker would do this; run the real processors directly.
     await runPipeline({ materialId: upload.materialId });
+    // Generation is explicit-only (specs/005): the pipeline ends at ready and
+    // the lesson is requested separately.
+    await generateLessonForMaterial(upload.materialId, user.user.id);
 
     const status = await session.get(`/api/materials/${upload.materialId}/status`);
     const material = status.body as {

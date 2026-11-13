@@ -3,6 +3,7 @@ import { startTestApp, stopTestApp } from '../../helpers/app-server';
 import { registerVerifiedUser } from '../../helpers/client';
 import {
   fakeUpload,
+  generateLessonForMaterial,
   materialJobsFor,
   runPipeline,
   resetPipelineState,
@@ -47,12 +48,11 @@ describe('bounded retry and idempotent processing', () => {
     expect(materialJobsFor(upload.materialId)).toHaveLength(1);
 
     await runPipeline({ materialId: upload.materialId });
+    // Generation is explicit-only (specs/005); drive the stage directly.
+    await generateLessonForMaterial(upload.materialId, user.user.id);
 
-    // Running the same payloads again must not duplicate the lesson.
-    const jobs = materialJobsFor(upload.materialId);
-    for (const job of jobs) {
-      void job;
-    }
+    // Re-running the same payloads again must not duplicate the lesson.
+    await generateLessonForMaterial(upload.materialId, user.user.id);
     const lessonCount = await Lesson.countDocuments({ userId: user.user.id });
     expect(lessonCount).toBe(1);
 
@@ -96,6 +96,8 @@ describe('bounded retry and idempotent processing', () => {
 
     const recovered = await user.session.get(`/api/materials/${upload.materialId}`);
     expect((recovered.body as { status: string }).status).toBe('ready');
+    // The lesson is requested explicitly after the pipeline reaches ready.
+    await generateLessonForMaterial(upload.materialId, user.user.id);
     const lessonCount = await Lesson.countDocuments({ userId: user.user.id });
     expect(lessonCount).toBe(1);
   });

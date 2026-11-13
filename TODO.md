@@ -105,16 +105,33 @@ Kickoff: implement Phases 1 and 2 as written; update the tests listed; run
 
 ## Step 3 — Schema & pipeline foundation (specs/005)
 
-- [ ] Lesson.sourceMaterialIds[] (1–5 distinct); materialId stays primary/first source
-- [ ] Drop global unique { materialId: 1 } index → non-unique { userId: 1, materialId: 1 };
-      update scripts/ensure-indexes.ts; run pnpm db:indexes
-- [ ] Backfill script: existing lessons get sourceMaterialIds = [materialId]
-- [ ] Explicit-only generation: worker/processors/parse-material.ts stops enqueueing
+- [x] Lesson.sourceMaterialIds[] (1–5 distinct); materialId stays primary/first source
+- [x] Drop global unique { materialId: 1 } index → non-unique { userId: 1, materialId: 1 };
+      update scripts/ensure-indexes.ts; run pnpm db:indexes (ensure-indexes needed no
+      change — its generic syncIndexes picks the schema up; verified against a scratch
+      replica set: legacy unique index dropped, tenant index created)
+- [x] Backfill script: existing lessons get sourceMaterialIds = [materialId]
+      (scripts/backfill-lesson-sources.ts + `pnpm db:backfill-sources`, logic in
+      lib/db/backfills/lesson-sources.ts with an integration test; verified on
+      legacy rows in the scratch DB)
+- [x] Explicit-only generation: worker/processors/parse-material.ts stops enqueueing
       generate (scan → parse → ready)
-- [ ] lib/jobs/schemas.ts — payload { requestId, materialIds[1..5], title, userId,
+- [x] lib/jobs/schemas.ts — payload { requestId, materialIds[1..5], title, userId,
       correlationId }; job id `generate_lesson_{requestId}`
-- [ ] lib/materials/delete-service.ts — no lesson cascade; $pull material from
-      lessons' sourceMaterialIds; update delete-material-dialog copy
+      (generateLessonRequestJobSchema + generateLessonJobIdFor; wired into the
+      worker in Step 4)
+- [x] lib/materials/delete-service.ts — no lesson cascade; $pull material from
+      lessons' sourceMaterialIds; update delete-material-dialog copy (lessons that
+      lose their last source are removed; the next surviving source is promoted to
+      the primary materialId)
+
+Step 3 notes (2026-11-13): retry route — generation failures on parsed materials
+reset the material to `ready` instead of enqueueing a pipeline stage (and
+stageForRetry now keys the parsed check on charCount, not pageCount, which is
+always null for text documents). The dormant single-material generate processor
+accepts invocation after the pipeline ends (transition gate widened); tests use
+the new `generateLessonForMaterial` helper for explicit generation. Gates: typecheck,
+lint, 101/101 unit+security, 21/21 integration (new backfill test), 33/33 contract.
 
 ## Step 4 — Generation request API + worker rewrite
 

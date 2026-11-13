@@ -55,7 +55,11 @@ export async function processGenerateLesson(payload: GenerateLessonJob): Promise
     return;
   }
 
-  const processing = await materials.transition(materialId, ['processing'], 'processing');
+  const processing = await materials.transition(
+    materialId,
+    ['queued', 'processing', 'ready'],
+    'processing',
+  );
   if (!processing) {
     // Idempotent completion: the lesson may already exist from an earlier delivery.
     const existing = await lessons.findByMaterialId(materialId);
@@ -119,6 +123,7 @@ export async function processGenerateLesson(payload: GenerateLessonJob): Promise
           {
             userId,
             materialId,
+            sourceMaterialIds: [materialId],
             title: generated.lesson.title,
             summary: generated.lesson.summary,
             contentMarkdown,

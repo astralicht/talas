@@ -4,7 +4,6 @@ import { MaterialRepository } from '@/lib/db/repositories/material-repository';
 import { ProcessingJobRepository } from '@/lib/db/repositories/processing-job-repository';
 import { getObjectBytes } from '@/lib/storage/s3';
 import { extractDocument, DocumentParseError } from '@/lib/parsing/extract';
-import { enqueueGenerateForMaterial } from '@/lib/jobs/material-jobs';
 import { failureMessage, type MaterialFailureCode } from '@/lib/materials/failure-messages';
 import type { ParseMaterialJob } from '@/lib/jobs/schemas';
 
@@ -23,7 +22,7 @@ const PARSE_FAILURE_CODES: ReadonlySet<string> = new Set([
  * documents fail with safe, actionable codes.
  */
 export async function processParseMaterial(payload: ParseMaterialJob): Promise<void> {
-  const { materialId, userId, correlationId } = payload;
+  const { materialId, userId } = payload;
 
   const materials = new MaterialRepository(userId);
   const jobs = new ProcessingJobRepository(userId);
@@ -80,15 +79,20 @@ export async function processParseMaterial(payload: ParseMaterialJob): Promise<v
   }
 
   await materials.saveParseResult(materialId, pageCount, text.length);
-  await jobs.markQueued(materialId);
 
-  try {
-    await enqueueGenerateForMaterial({ materialId, userId, correlationId });
-  } catch (error) {
-    await materials.markFailed(materialId, 'internal_error', failureMessage('internal_error'));
-    await jobs.markFailed(materialId, 'internal_error', failureMessage('internal_error'));
-    logger.error({ err: error, materialId }, 'Failed to enqueue generation stage');
+  // Explicit-only generation (specs/005): a parsed material ends the automatic
+  // pipeline in the `ready` state. Lesson creation happens only when the user
+  // requests it through the lesson-generation flow — no generate stage is
+  // enqueued here anymore.
+  const ready = await materials.transition(materialId, ['processing'], 'ready');
+  if (!ready) {
+    logger.warn({ materialId, status: material.status }, 'Material skipped the ready transition');
     return;
   }
-  logger.info({ materialId, pageCount, charCount: text.length }, 'Document parsed and queued for generation');
+  await jobs.markReady(materialId);
+
+  logger.info(
+    { materialId, pageCount, charCount: text.length },
+    'Document parsed; material is ready for lesson generation on request',
+  );
 }

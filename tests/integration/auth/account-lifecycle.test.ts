@@ -3,6 +3,7 @@ import { startTestApp, stopTestApp } from '../../helpers/app-server';
 import { registerVerifiedUser, TestSession } from '../../helpers/client';
 import {
   drainAccountDeletionJobs,
+  generateLessonForMaterial,
   materialJobsFor,
   resetPipelineState,
   runPipeline,
@@ -53,6 +54,8 @@ describe('account lifecycle', () => {
     );
     await confirmMaterial(user.session, upload.materialId);
     await runPipeline();
+    // The export archive includes generated lessons; request one explicitly.
+    await generateLessonForMaterial(upload.materialId, user.user.id);
 
     const response = await user.session.binaryGet('/api/account/export');
     expect(response.status).toBe(200);

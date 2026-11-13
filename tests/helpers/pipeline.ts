@@ -59,6 +59,10 @@ async function runProcessor(
 /**
  * Runs queued material jobs to termination — exactly what the worker would — by
  * dispatching payloads to the real processors. Returns the payloads seen.
+ *
+ * Since specs/005 the automatic pipeline is scan → parse → ready; lesson
+ * generation is explicit-only, so suites that need a lesson call
+ * `generateLessonForMaterial` after `runPipeline`.
  */
 export async function runPipeline(
   options: { limit?: number; materialId?: string } = {},
@@ -77,6 +81,27 @@ export async function runPipeline(
     if (pending.length === 0) break;
   }
   return processed;
+}
+
+/**
+ * Drives the dormant single-material generate stage for one material, the way
+ * an explicit lesson-generation request would (the request API itself arrives
+ * with specs/005 Step 4). Re-arms the processing job first so the stage claim
+ * succeeds even when the automatic pipeline already finished at `ready`.
+ */
+export async function generateLessonForMaterial(
+  materialId: string,
+  userId: string,
+  correlationId = 'test-explicit-generate',
+): Promise<void> {
+  const { ProcessingJobRepository } = await import('@/lib/db/repositories/processing-job-repository');
+  await new ProcessingJobRepository(userId).markQueuedForRetry(materialId);
+  await processGenerateLesson({
+    type: 'generate_lesson',
+    materialId,
+    userId,
+    correlationId,
+  } as GenerateLessonJob);
 }
 
 export const fakeUpload = (storageKey: string, bytes: Buffer, contentType: string) => {

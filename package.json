@@ -23,6 +23,7 @@
     "test:coverage": "vitest run --coverage",
     "openapi:lint": "tsx scripts/lint-openapi.ts",
     "db:indexes": "tsx scripts/ensure-indexes.ts",
+    "db:backfill-sources": "tsx scripts/backfill-lesson-sources.ts",
     "db:seed": "tsx scripts/seed.ts",
     "worker:dev": "tsx watch worker/index.ts",
     "worker:start": "tsx worker/index.ts"

@@ -87,6 +87,7 @@ async function seedSampleLesson(userId: Types.ObjectId): Promise<void> {
   const lesson = await Lesson.create({
     userId,
     materialId,
+    sourceMaterialIds: [materialId],
     title: 'Photosynthesis Foundations',
     summary: 'How light energy becomes chemical energy.',
     contentMarkdown: SAMPLE_MARKDOWN,

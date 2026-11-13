@@ -1,5 +1,5 @@
 import { enqueueMaterialJob } from './queues';
-import type { GenerateLessonJob, ParseMaterialJob, ScanMaterialJob } from './schemas';
+import type { ParseMaterialJob, ScanMaterialJob } from './schemas';
 
 export interface MaterialJobContext {
   materialId: string;
@@ -27,12 +27,7 @@ export function enqueueParseForMaterial(context: MaterialJobContext): Promise<st
   return enqueueMaterialJob(payload);
 }
 
-export function enqueueGenerateForMaterial(context: MaterialJobContext): Promise<string> {
-  const payload: GenerateLessonJob = {
-    type: 'generate_lesson',
-    materialId: context.materialId,
-    userId: context.userId,
-    correlationId: context.correlationId,
-  };
-  return enqueueMaterialJob(payload);
-}
+// Lesson generation is explicit-only (specs/005): there is no automatic
+// generate-stage enqueue for materials anymore. Lesson creation is requested
+// through the lesson-generation flow, which enqueues its own job payload
+// (see generateLessonRequestJobSchema in lib/jobs/schemas.ts).

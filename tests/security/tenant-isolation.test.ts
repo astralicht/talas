@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestApp, stopTestApp } from '../helpers/app-server';
 import { registerVerifiedUser } from '../helpers/client';
-import { runPipeline, resetPipelineState } from '../helpers/pipeline';
+import { runPipeline, resetPipelineState, generateLessonForMaterial } from '../helpers/pipeline';
 import { confirmMaterial, uploadToFakeS3 } from '../helpers/storage-fake';
 import { TEXT_MATERIAL_BYTES } from '../fixtures/materials';
 
@@ -30,6 +30,8 @@ describe('cross-tenant isolation', () => {
     );
     await confirmMaterial(userA.session, upload.materialId);
     await runPipeline();
+    // The lesson list assertions below need a lesson: request it explicitly.
+    await generateLessonForMaterial(upload.materialId, userA.user.id);
 
     const lessonsOfA = (await userA.session.get('/api/lessons')).body as {
       data: Array<{ id: string }>;

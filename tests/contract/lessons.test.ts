@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestApp, stopTestApp } from '../helpers/app-server';
 import { registerVerifiedUser, type RegisteredUser } from '../helpers/client';
-import { runPipeline, resetPipelineState } from '../helpers/pipeline';
+import { runPipeline, resetPipelineState, generateLessonForMaterial } from '../helpers/pipeline';
 import { confirmMaterial, uploadToFakeS3 } from '../helpers/storage-fake';
 import { TEXT_MATERIAL_BYTES } from '../fixtures/materials';
 
@@ -23,6 +23,8 @@ beforeAll(async () => {
   );
   await confirmMaterial(user.session, upload.materialId);
   await runPipeline({ materialId: upload.materialId });
+  // Generation is explicit-only (specs/005): request it like the API would.
+  await generateLessonForMaterial(upload.materialId, user.user.id);
   const list = await user.session.get('/api/lessons');
   const lessonId = (list.body as { data: Array<{ id: string }> }).data[0]!.id;
   seeded = { user, lessonId };

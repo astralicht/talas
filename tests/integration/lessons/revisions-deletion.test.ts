@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestApp, stopTestApp } from '../../helpers/app-server';
 import { registerVerifiedUser } from '../../helpers/client';
-import { runPipeline, resetPipelineState } from '../../helpers/pipeline';
+import { runPipeline, resetPipelineState, generateLessonForMaterial } from '../../helpers/pipeline';
 import { confirmMaterial, uploadToFakeS3 } from '../../helpers/storage-fake';
 import { TEXT_MATERIAL_BYTES } from '../../fixtures/materials';
 import { LessonRepository } from '@/lib/db/repositories/lesson-repository';
@@ -24,6 +24,8 @@ async function seedReadyLesson() {
   const upload = await uploadToFakeS3(user.session, user.user.id, 'revisions.md', 'text/markdown', TEXT_MATERIAL_BYTES);
   await confirmMaterial(user.session, upload.materialId);
   await runPipeline();
+  // Lesson generation is explicit-only (specs/005).
+  await generateLessonForMaterial(upload.materialId, user.user.id);
   const lesson = await new LessonRepository(user.user.id).findByMaterialId(upload.materialId);
   const revisions = new LessonRevisionRepository(user.user.id);
   const history = await revisions.listForLesson(lesson!._id);

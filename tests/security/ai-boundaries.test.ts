@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestApp, stopTestApp } from '../helpers/app-server';
 import { registerVerifiedUser } from '../helpers/client';
-import { runPipeline, resetPipelineState } from '../helpers/pipeline';
+import { runPipeline, resetPipelineState, generateLessonForMaterial } from '../helpers/pipeline';
 import { confirmMaterial, uploadToFakeS3 } from '../helpers/storage-fake';
 import { TEXT_MATERIAL_BYTES } from '../fixtures/materials';
 import { Lesson } from '@/lib/db/models/lesson';
@@ -42,12 +42,16 @@ describe('AI provider boundaries', () => {
         TEXT_MATERIAL_BYTES,
       );
       await confirmMaterial(user.session, upload.materialId);
+      // The automatic pipeline is explicit-only now (specs/005): scan and parse
+      // complete without touching the AI, and the material ends ready.
       const seen = await runPipeline({ materialId: upload.materialId });
-      expect(seen.map((job) => job.type)).toEqual([
-        'scan_material',
-        'parse_material',
-        'generate_lesson',
-      ]);
+      expect(seen.map((job) => job.type)).toEqual(['scan_material', 'parse_material']);
+
+      const parsed = await user.session.get(`/api/materials/${upload.materialId}`);
+      expect((parsed.body as { status: string }).status).toBe('ready');
+
+      // The generation stage is driven explicitly, like the request API would.
+      await generateLessonForMaterial(upload.materialId, user.user.id);
 
       const material = await user.session.get(`/api/materials/${upload.materialId}`);
       const view = material.body as { status: string; failureCode: string | null };
@@ -57,14 +61,13 @@ describe('AI provider boundaries', () => {
       // Nothing persisted: no lesson, no revisions.
       expect(await Lesson.countDocuments({ userId: user.user.id })).toBe(0);
 
-      // The retry endpoint re-arms a failed generation.
+      // The retry endpoint resets a parsed material to ready; a new generation
+      // is requested separately (specs/005).
       const retry = await user.session.post(`/api/materials/${upload.materialId}/retry`);
       expect(retry.status).toBe(202);
 
-      setAiFakes(true, false);
-      await runPipeline({ materialId: upload.materialId });
-      const recovered = await user.session.get(`/api/materials/${upload.materialId}`);
-      expect((recovered.body as { status: string }).status).toBe('ready');
+      const retried = await user.session.get(`/api/materials/${upload.materialId}`);
+      expect((retried.body as { status: string }).status).toBe('ready');
     } finally {
       setAiFakes(true, false);
     }
@@ -81,6 +84,7 @@ describe('AI provider boundaries', () => {
     );
     await confirmMaterial(user.session, upload.materialId);
     await runPipeline({ materialId: upload.materialId });
+    await generateLessonForMaterial(upload.materialId, user.user.id);
 
     const lesson = await Lesson.findOne({ userId: user.user.id })
       .lean<{ contentMarkdown: string }>()

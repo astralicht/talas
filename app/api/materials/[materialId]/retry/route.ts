@@ -4,11 +4,7 @@ import { accepted } from '@/lib/http/responses';
 import { errors } from '@/lib/http/errors';
 import { MaterialRepository } from '@/lib/db/repositories/material-repository';
 import { ProcessingJobRepository } from '@/lib/db/repositories/processing-job-repository';
-import {
-  enqueueScanForMaterial,
-  enqueueParseForMaterial,
-  enqueueGenerateForMaterial,
-} from '@/lib/jobs/material-jobs';
+import { enqueueScanForMaterial, enqueueParseForMaterial } from '@/lib/jobs/material-jobs';
 import { enforceUploadRateLimit } from '@/lib/security/upload-rate-limit';
 import { serializeMaterial } from '@/lib/http/serializers';
 import { auditEvents } from '@/lib/logging/audit-events';
@@ -22,11 +18,10 @@ const paramsSchema = z
 
 type Stage = 'scan' | 'parse' | 'generate';
 
-/** The material state each stage expects to resume from. */
-const STAGE_SOURCE_STATUS: Record<Stage, 'uploaded' | 'queued' | 'processing'> = {
+/** The material state each pipeline stage expects to resume from. */
+const STAGE_SOURCE_STATUS: Record<Exclude<Stage, 'generate'>, 'uploaded' | 'queued'> = {
   scan: 'uploaded',
   parse: 'queued',
-  generate: 'processing',
 };
 
 /**
@@ -43,10 +38,9 @@ function stageForRetry(material: {
   if (material.failureCode === 'scanner_unavailable') {
     return 'scan';
   }
-  const parsed =
-    material.scanResult === 'clean' &&
-    material.charCount !== null &&
-    material.pageCount !== null;
+  // A successful parse is proven by the extracted character count; pageCount
+  // stays null for text documents, so it must not gate the decision.
+  const parsed = material.scanResult === 'clean' && material.charCount !== null;
   if (!parsed) {
     return material.scanResult === 'clean' ? 'parse' : 'scan';
   }
@@ -86,6 +80,27 @@ export const POST = route({ auth: true, verified: true, csrf: true, params: para
   const jobs = new ProcessingJobRepository(user.id);
   await jobs.markQueuedForRetry(params.materialId);
 
+  // Explicit-only generation (specs/005): a parsed material whose generation
+  // failed is already usable — retrying it resets the material to `ready`
+  // instead of enqueueing a pipeline stage. A new lesson (or a regeneration)
+  // is requested through the lesson-generation flow.
+  if (stage === 'generate') {
+    const reset = await materials.transition(
+      material._id.toHexString(),
+      ['failed'],
+      'ready',
+      { failureCode: null, failureMessage: null },
+    );
+    if (!reset) throw errors.conflict('The material is already being retried.');
+
+    await auditEvents.materialRetry({
+      userId: user.id,
+      correlationId,
+      metadata: { materialId: params.materialId, stage },
+    });
+    return accepted(serializeMaterial(reset));
+  }
+
   const queued = await materials.transition(
     material._id.toHexString(),
     ['failed'],
@@ -100,8 +115,7 @@ export const POST = route({ auth: true, verified: true, csrf: true, params: para
     correlationId,
   };
   if (stage === 'scan') await enqueueScanForMaterial(context);
-  else if (stage === 'parse') await enqueueParseForMaterial(context);
-  else await enqueueGenerateForMaterial(context);
+  else await enqueueParseForMaterial(context);
 
   await auditEvents.materialRetry({
     userId: user.id,
