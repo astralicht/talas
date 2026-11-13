@@ -5,6 +5,7 @@ import { Material, type IMaterial } from '@/lib/db/models/material';
 import { ProcessingJob } from '@/lib/db/models/processing-job';
 import { Lesson, type ILesson } from '@/lib/db/models/lesson';
 import { LessonRevision } from '@/lib/db/models/lesson-revision';
+import { deleteMaterialAssets } from '@/lib/materials/asset-service';
 
 export interface MaterialDeletionResult {
   materialId: string;
@@ -48,6 +49,9 @@ export async function deleteMaterialCascade(
   }
 
   const job = await ProcessingJob.findOneAndDelete({ userId, materialId }).exec();
+
+  // FR-008: stored image assets of the material are removed with it.
+  await deleteMaterialAssets(userId, materialId);
 
   // Lessons still referencing the material: pull it from the source list.
   const affected = await Lesson.find({

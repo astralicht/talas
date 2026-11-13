@@ -42,13 +42,14 @@ export async function detectAndVerifyMime(input: VerifyObjectInput): Promise<str
     );
   }
 
-  if (buffer.includes(0)) {
-    throw errors.unsupportedMedia('The file content does not match the declared media type.');
-  }
-
   if (TEXT_MIMES.has(declaredMime)) {
     if (mimeForExtension(filename) !== declaredMime) {
       throw errors.unsupportedMedia('The filename extension does not match the declared media type.');
+    }
+    // Binary content disguised as text: containers like DOCX are full of NUL
+    // bytes, so a single null byte proves the bytes are not UTF-8 text.
+    if (buffer.includes(0)) {
+      throw errors.unsupportedMedia('The file content does not match the declared media type.');
     }
     try {
       new TextDecoder('utf-8', { fatal: true }).decode(buffer);

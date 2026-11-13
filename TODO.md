@@ -161,22 +161,32 @@ title and prefers the multi-source prompt builder. Gates: typecheck, lint,
 
 ## Step 5 — Material image assets
 
-- [ ] lib/parsing/extract.ts returns images[]: DOCX via mammoth image emitter
+- [x] lib/parsing/extract.ts returns images[]: DOCX via mammoth image emitter
       (position markers); PDF raster XObjects (skip <8KB icons, dedupe by hash,
       cap 10/material, ≤1280px, skip exotic colorspaces)
-- [ ] Image-only PDFs: render pages via pdfjs + @napi-rs/canvas (new worker-only
-      dependency) → PNG assets
-- [ ] lib/db/models/material-asset.ts { userId, materialId, assetKey, contentType,
+- [x] Image-only PDFs: render pages via pdfjs + @napi-rs/canvas (new worker-only
+      dependency) → PNG assets (also fixed a pre-existing bug: the null-byte
+      scan in verify-object ran before binary MIME detection, so real
+      DOCX/PDF uploads could never pass confirm)
+- [x] lib/db/models/material-asset.ts { userId, materialId, assetKey, contentType,
       byteSize, pageNumber?, width?, height? } + indexes; S3 at
       materials/{userId}/{materialId}/images/{assetId}
-- [ ] GET /api/materials/{materialId}/images/{assetId} — auth, tenant-scoped,
+- [x] GET /api/materials/{materialId}/images/{assetId} — auth, tenant-scoped,
       Cache-Control private
-- [ ] Prompt image catalog; post-processing URL allowlist (lib/ai/images.ts) —
+- [x] Prompt image catalog; post-processing URL allowlist (lib/ai/images.ts) —
       only catalog URLs survive; vision parts for image-only sources; extend
       AI_FAKE_LESSON fake path
-- [ ] MarkdownRenderer img component (responsive, dark-mode border)
-- [ ] Tests: extraction heuristics, URL allowlist, image-route contract
+- [x] MarkdownRenderer img component (responsive, dark-mode border)
+- [x] Tests: extraction heuristics, URL allowlist, image-route contract
       (tenant isolation, non-revealing 404), image-only lifecycle
+
+Step 5 notes (2026-11-13): rendering requires registering @napi-rs/canvas's
+Path2D/Image/ImageData on globalThis BEFORE the pdfjs import (pdfjs caches its
+polyfill at module init). Images are best-effort throughout — extraction and
+storage failures never fail the parse; generation rides the vision path for
+image-only sources and the allowlist strips every non-catalog URL from stored
+lesson content. Gates: typecheck, lint, 115/115 unit+security, 30/30
+integration, 38/38 contract.
 
 ## Step 6 — UI flow
 

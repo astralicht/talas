@@ -4,6 +4,8 @@ import { MaterialRepository } from '@/lib/db/repositories/material-repository';
 import { ProcessingJobRepository } from '@/lib/db/repositories/processing-job-repository';
 import { getObjectBytes } from '@/lib/storage/s3';
 import { extractDocument, DocumentParseError } from '@/lib/parsing/extract';
+import type { ExtractedImage } from '@/lib/parsing/types';
+import { persistMaterialAssets } from '@/lib/materials/asset-service';
 import { failureMessage, type MaterialFailureCode } from '@/lib/materials/failure-messages';
 import type { ParseMaterialJob } from '@/lib/jobs/schemas';
 
@@ -57,12 +59,14 @@ export async function processParseMaterial(payload: ParseMaterialJob): Promise<v
 
   let text: string;
   let pageCount: number | null;
+  let images: ExtractedImage[] = [];
   try {
     const bytes = await getObjectBytes(material.storageKey);
     const detectedMime = material.detectedMime ?? material.declaredMime;
     const result = await extractDocument(bytes, detectedMime);
     text = result.text;
     pageCount = result.pageCount;
+    images = result.images ?? [];
   } catch (error) {
     if (error instanceof DocumentParseError && PARSE_FAILURE_CODES.has(error.code)) {
       await materials.markFailed(materialId, error.code, failureMessage(error.code as MaterialFailureCode));
@@ -79,6 +83,10 @@ export async function processParseMaterial(payload: ParseMaterialJob): Promise<v
   }
 
   await materials.saveParseResult(materialId, pageCount, text.length);
+  // FR-008: extracted images become tenant-scoped assets; best-effort.
+  if (images.length > 0) {
+    await persistMaterialAssets(userId, materialId, images);
+  }
 
   // Explicit-only generation (specs/005): a parsed material ends the automatic
   // pipeline in the `ready` state. Lesson creation happens only when the user

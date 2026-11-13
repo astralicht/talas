@@ -13,6 +13,7 @@ import {
   REQUEST_LEASE_MS,
   type ILessonGenerationRequest,
 } from '@/lib/db/models/lesson-generation-request';
+import { MaterialAsset } from '@/lib/db/models/material-asset';
 import { withTransaction } from '@/lib/db/connection';
 import { failureMessage } from '@/lib/materials/failure-messages';
 import { sanitizeLessonContent } from '@/lib/security/sanitize';
@@ -21,6 +22,7 @@ import {
   LessonGenerationError,
 } from '@/lib/ai/generate-lesson';
 import { SOURCE_CHAR_CAP, TOTAL_SOURCE_CHAR_CAP } from '@/lib/ai/prompts';
+import { buildImageUrl } from '@/lib/ai/images';
 import { auditEvents } from '@/lib/logging/audit-events';
 import type {
   GenerateLessonJob,
@@ -314,17 +316,45 @@ export async function processGenerateLessonRequest(
         0,
         Math.max(0, Math.min(SOURCE_CHAR_CAP, TOTAL_SOURCE_CHAR_CAP - used)),
       );
-      if (capped.length === 0) continue;
       used += capped.length;
-      sources.push({
-        filename: material.originalFilename,
-        detectedMime,
-        text: capped,
-      });
+      if (capped.length > 0) {
+        sources.push({
+          filename: material.originalFilename,
+          detectedMime,
+          text: capped,
+        });
+      }
     } catch (error) {
       requestLogger.warn({ err: error, materialId }, 'Source extraction failed');
       await failRequest(claimed, 'parse_failed', { materialId });
       return;
+    }
+  }
+
+  // FR-008: stored image assets — the catalog lists the URLs the model may
+  // reference; image-only sources (no text at all) travel as vision parts.
+  const assets = await MaterialAsset.find({
+    userId: userObjectId,
+    materialId: { $in: materialIds.map((id) => new Types.ObjectId(id)) },
+  })
+    .sort({ createdAt: 1 })
+    .lean()
+    .exec();
+  const imageCatalog = assets.map((asset) =>
+    buildImageUrl(asset.materialId.toHexString(), asset._id.toHexString()),
+  );
+
+  const visionImages: Array<{ dataUrl: string }> = [];
+  for (const asset of assets) {
+    if (visionImages.length >= 10) break;
+    try {
+      const bytes = await getObjectBytes(asset.assetKey, 4_194_304);
+      const mime = asset.contentType.startsWith('image/') ? asset.contentType : 'image/png';
+      visionImages.push({
+        dataUrl: `data:${mime};base64,${bytes.toString('base64')}`,
+      });
+    } catch (error) {
+      requestLogger.warn({ err: error, assetId: asset._id }, 'Asset bytes unavailable; skipped');
     }
   }
 
@@ -333,6 +363,8 @@ export async function processGenerateLessonRequest(
       userId,
       title,
       sources,
+      imageCatalog,
+      visionImages,
       // The single-source fields stay required by the input type; multi-source
       // inputs ignore them.
       filename: sources[0]?.filename ?? 'sources',

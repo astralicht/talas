@@ -10,10 +10,24 @@ export class DocumentParseError extends Error {
   }
 }
 
+/** One image extracted from a document (specs/005 FR-008). */
+export interface ExtractedImage {
+  /** Encoded image bytes, ready to store as-is. */
+  data: Buffer;
+  contentType: string;
+  width?: number | null;
+  height?: number | null;
+  /** 1-based page for PDFs; null for DOCX. */
+  pageNumber?: number | null;
+  /** Position marker inserted into the extracted text at the image site. */
+  positionMarker: string;
+}
+
 export interface ExtractResult {
   text: string;
   pageCount: number | null;
   charCount: number;
+  images?: ExtractedImage[];
 }
 
 export const MAX_PAGES = 200;

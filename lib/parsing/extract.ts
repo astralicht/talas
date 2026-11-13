@@ -4,7 +4,7 @@ import { isImageOnly } from './quality';
 import { extractTextDocument } from './text';
 import { DocumentParseError, type ExtractResult } from './types';
 
-export type { ExtractResult } from './types';
+export type { ExtractResult, ExtractedImage } from './types';
 export { DocumentParseError, MAX_CHARACTERS, MAX_PAGES } from './types';
 
 export async function extractDocument(
@@ -14,9 +14,18 @@ export async function extractDocument(
   let result: ExtractResult;
 
   switch (detectedMime) {
-    case 'application/pdf':
+    case 'application/pdf': {
+      // FR-008: sparse/image-only PDFs render their pages as image assets
+      // instead of being rejected, so the OCR rejection only applies to
+      // non-PDF formats.
       result = await extractPdfDocument(buffer);
-      break;
+      return {
+        text: result.text.trim(),
+        pageCount: result.pageCount,
+        charCount: result.text.trim().length,
+        images: result.images,
+      };
+    }
     case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
       result = await extractDocxDocument(buffer);
       break;
@@ -39,5 +48,6 @@ export async function extractDocument(
     text: result.text.trim(),
     pageCount: result.pageCount,
     charCount: result.text.trim().length,
+    images: result.images,
   };
 }

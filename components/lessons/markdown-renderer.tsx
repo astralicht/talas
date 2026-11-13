@@ -26,6 +26,17 @@ export function MarkdownRenderer({ content }: { content: string }) {
               {children}
             </a>
           ),
+          img: ({ src, alt }) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={typeof src === 'string' ? src : ''}
+              alt={alt ?? 'Figure'}
+              // FR-008: responsive figures; the sources are tenant-scoped
+              // cookie-authenticated routes (Cache-Control private).
+              className="mx-auto max-w-full h-auto rounded-md border border-slate-200 dark:border-slate-700"
+              loading="lazy"
+            />
+          ),
         }}
       >
         {safe}

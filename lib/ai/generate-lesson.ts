@@ -17,6 +17,7 @@ import {
   MAX_OUTPUT_TOKENS,
   type LessonSourceInput,
 } from './prompts';
+import { sanitizeGeneratedImages } from './images';
 import { lessonModelCandidates, type LessonModel } from './provider';
 import { getEnv } from '@/lib/env';
 
@@ -46,6 +47,10 @@ export interface GenerateLessonInput {
   sources?: LessonSourceInput[];
   /** User-supplied title; the generated lesson uses exactly this title. */
   title?: string;
+  /** Stored image URLs the model may reference in its markdown (FR-008). */
+  imageCatalog?: string[];
+  /** Image-only sources: images the model must see (vision parts). */
+  visionImages?: Array<{ dataUrl: string }>;
 }
 
 export interface GenerateLessonOutput {
@@ -69,12 +74,27 @@ export interface GenerateObjectCall {
     prompt: string;
     maxOutputTokens: number;
     temperature: number;
+    /** Stored figure URLs offered to the model (FR-008). */
+    imageCatalog?: string[];
+    /** Vision parts (FR-008): present only for image-only sources. */
+    messages?: Array<{
+      role: 'user';
+      content: Array<
+        | { type: 'text'; text: string }
+        | { type: 'image'; image: string }
+      >;
+    }>;
   }): Promise<{ object: unknown; usage?: GenerateObjectUsage }>;
 }
 
 const defaultGenerateObject: GenerateObjectCall = (options) => {
   if (getEnv().AI_FAKE_LESSON) {
     // Integration stack fake: a deterministic, schema-valid model response.
+    // When a stored image catalog exists, the fake references its first URL so
+    // downstream allowlist processing has something legitimate to keep.
+    const figure = options.imageCatalog?.[0]
+      ? `\n\n![Figure](${options.imageCatalog[0]})`
+      : '';
     return Promise.resolve({
       object: {
         title: 'Generated study lesson',
@@ -82,7 +102,7 @@ const defaultGenerateObject: GenerateObjectCall = (options) => {
         sections: [
           {
             heading: 'Overview',
-            contentMarkdown: 'Key scientific concepts extracted from the uploaded document.',
+            contentMarkdown: `Key scientific concepts extracted from the uploaded document.${figure}`,
             keyPoints: ['Concept one', 'Concept two'],
           },
           {
@@ -94,7 +114,11 @@ const defaultGenerateObject: GenerateObjectCall = (options) => {
       usage: { inputTokens: 1200, outputTokens: 600 },
     });
   }
-  return generateObject({ ...options, schema: options.schema }) as unknown as Promise<{
+  const { messages, ...rest } = options;
+  const params = messages
+    ? { model: rest.model, schema: rest.schema, system: rest.system, maxOutputTokens: rest.maxOutputTokens, temperature: rest.temperature, messages }
+    : { model: rest.model, schema: rest.schema, system: rest.system, maxOutputTokens: rest.maxOutputTokens, temperature: rest.temperature, prompt: rest.prompt };
+  return generateObject(params as never) as unknown as Promise<{
     object: unknown;
     usage?: GenerateObjectUsage;
   }>;
@@ -110,18 +134,61 @@ async function callModel(
   candidate: LessonModel,
   input: GenerateLessonInput,
 ): Promise<{ object: unknown; usage?: GenerateObjectUsage }> {
+  const prompt = buildSourcePrompt(input);
+  const base = {
+    model: candidate.model,
+    schema: (await import('./lesson-schema')).generatedLessonSchema,
+    system: buildLessonSystemPrompt(),
+    maxOutputTokens: MAX_OUTPUT_TOKENS,
+    temperature: 0.2,
+  };
+
+  if (input.visionImages && input.visionImages.length > 0) {
+    // FR-008: image-only sources travel as vision parts next to the prompt.
+    return generateObjectImpl({
+      ...base,
+      prompt,
+      imageCatalog: input.imageCatalog,
+      messages: [
+        {
+          role: 'user' as const,
+          content: [
+            { type: 'text' as const, text: prompt },
+            ...input.visionImages.map((image) => ({
+              type: 'image' as const,
+              image: image.dataUrl,
+            })),
+          ],
+        },
+      ],
+    });
+  }
+
+  return generateObjectImpl({
+    ...base,
+    prompt,
+    imageCatalog: input.imageCatalog,
+  });
+}
+
+function buildSourcePrompt(input: GenerateLessonInput): string {
   const prompt =
     input.sources && input.sources.length > 0
       ? buildMultiSourceLessonPrompt({ title: input.title, sources: input.sources })
       : buildLessonPrompt(input);
-  return generateObjectImpl({
-    model: candidate.model,
-    schema: (await import('./lesson-schema')).generatedLessonSchema,
-    system: buildLessonSystemPrompt(),
-    prompt,
-    maxOutputTokens: MAX_OUTPUT_TOKENS,
-    temperature: 0.2,
-  });
+
+  if (input.imageCatalog && input.imageCatalog.length > 0) {
+    const listing = input.imageCatalog
+      .map((url, index) => `- Figure ${index + 1}: ${url}`)
+      .join('\n');
+    return [
+      prompt,
+      '',
+      'Stored figures you may reference in your markdown (use these exact URLs only):',
+      listing,
+    ].join('\n');
+  }
+  return prompt;
 }
 
 export async function generateLesson(
@@ -173,9 +240,14 @@ export async function generateLesson(
         ? { ...parsed.lesson, title: input.title }
         : parsed.lesson;
 
+      // FR-008: only catalog URLs may survive into stored lesson content.
+      const markdown = input.imageCatalog
+        ? sanitizeGeneratedImages(lessonToMarkdown(lesson), input.imageCatalog)
+        : lessonToMarkdown(lesson);
+
       return {
         lesson,
-        markdown: lessonToMarkdown(lesson),
+        markdown,
         provider: candidate.provider,
         model: candidate.modelId,
         promptVersion: LESSON_PROMPT_VERSION,
