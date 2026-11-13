@@ -19,6 +19,22 @@ export const generatedLessonSchema = z
       )
       .min(1)
       .max(30),
+    // Multiple-choice self-test (specs/005 follow-up): generated with the
+    // lesson, rendered by the interactive widget; no attempts are ever stored.
+    quiz: z
+      .array(
+        z
+          .object({
+            question: z.string().min(1).max(300),
+            options: z.array(z.string().min(1).max(120)).length(4),
+            correctIndex: z.number().int().min(0).max(3),
+            explanation: z.string().max(300).optional(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(5)
+      .optional(),
   })
   .strict();
 

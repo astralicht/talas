@@ -11,7 +11,7 @@ export const MAX_INPUT_CHARS = MAX_INPUT_TOKENS * APPROX_CHARS_PER_TOKEN;
 export const SOURCE_CHAR_CAP = 32_000;
 export const TOTAL_SOURCE_CHAR_CAP = 128_000;
 
-export const LESSON_PROMPT_VERSION = 'v2';
+export const LESSON_PROMPT_VERSION = 'v3';
 
 export interface PromptInput {
   filename: string;
@@ -54,6 +54,13 @@ export function buildLessonSystemPrompt(): string {
     'strings), sections (array of 3 to 8 objects, each with heading,',
     'contentMarkdown, keyPoints, misconceptions, checkUnderstanding; the last',
     'three are optional arrays of short strings, at most 20 / 5 / 5 items).',
+    'Always include quiz: an array of 3 to 5 multiple-choice questions that',
+    'test the core facts, each an object with question (string, max 300',
+    'characters), options (array of exactly 4 short strings, at most 120',
+    'characters each, exactly one correct), correctIndex (0 to 3), and',
+    'explanation (optional short string, at most 300 characters, why the',
+    'correct answer is right). Distractors must be plausible but clearly',
+    'wrong to someone who knows the material.',
     'Keep each contentMarkdown under 1200 characters and always close the JSON',
     'object before the output limit. Prefer short paragraphs, lists, and',
     'tables where they aid comprehension. Write in English using',

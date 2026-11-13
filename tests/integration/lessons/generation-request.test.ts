@@ -81,7 +81,7 @@ describe('explicit lesson-generation requests (specs/005)', () => {
     expect(ready.lastErrorCode).toBeNull();
 
     const lesson = await Lesson.findOne({ userId: user.user.id })
-      .lean<{ _id: { toHexString(): string }; title: string; materialId: { toHexString(): string }; sourceMaterialIds: Array<{ toHexString(): string }>; version: number }>()
+      .lean<{ _id: { toHexString(): string }; title: string; materialId: { toHexString(): string }; sourceMaterialIds: Array<{ toHexString(): string }>; version: number; quiz: Array<{ question: string; options: string[]; correctIndex: number }> | null }>()
       .exec();
     expect(lesson?.title).toBe('Forces and Momentum');
     expect(lesson?.materialId.toHexString()).toBe(first.materialId);
@@ -90,6 +90,14 @@ describe('explicit lesson-generation requests (specs/005)', () => {
       second.materialId,
     ]);
     expect(lesson?.version).toBe(1);
+
+    // The generated quiz rides along with the lesson (fake path provides two).
+    expect(lesson?.quiz).toHaveLength(2);
+    for (const question of lesson?.quiz ?? []) {
+      expect(question.options).toHaveLength(4);
+      expect(question.correctIndex).toBeGreaterThanOrEqual(0);
+      expect(question.correctIndex).toBeLessThanOrEqual(3);
+    }
 
     const revisions = await LessonRevision.find({ userId: user.user.id }).lean().exec();
     expect(revisions).toHaveLength(1);

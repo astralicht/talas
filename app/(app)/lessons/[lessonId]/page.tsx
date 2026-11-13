@@ -7,6 +7,7 @@ import { MaterialRepository } from '@/lib/db/repositories/material-repository';
 import { MarkdownRenderer } from '@/components/lessons/markdown-renderer';
 import { DeleteLessonDialog } from '@/components/lessons/delete-lesson-dialog';
 import { RegenerateLessonDialog } from '@/components/lessons/regenerate-lesson-dialog';
+import { LessonQuiz, type LessonQuizQuestion } from '@/components/lessons/lesson-quiz';
 
 export const metadata: Metadata = { title: 'Lesson' };
 export const dynamic = 'force-dynamic';
@@ -119,6 +120,17 @@ export default async function LessonViewPage({
       <article className="rounded-xl border border-border bg-card p-6 sm:p-8">
         <MarkdownRenderer content={lesson.contentMarkdown} />
       </article>
+
+      {lesson.quiz && lesson.quiz.length > 0 ? (
+        <LessonQuiz
+          questions={lesson.quiz.map((question): LessonQuizQuestion => ({
+            question: question.question,
+            options: [...question.options],
+            correctIndex: question.correctIndex,
+            explanation: question.explanation ?? undefined,
+          }))}
+        />
+      ) : null}
     </div>
   );
 }

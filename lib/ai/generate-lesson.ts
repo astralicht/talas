@@ -99,15 +99,37 @@ const defaultGenerateObject: GenerateObjectCall = (options) => {
       object: {
         title: 'Generated study lesson',
         summary: 'A structured summary of the uploaded material.',
+        learningObjectives: ['Understand the key concepts of the material.'],
         sections: [
           {
             heading: 'Overview',
             contentMarkdown: `Key scientific concepts extracted from the uploaded document.${figure}`,
             keyPoints: ['Concept one', 'Concept two'],
+            checkUnderstanding: ['What is the main idea of the material?'],
           },
           {
             heading: 'Deep dive',
             contentMarkdown: 'Additional details reconstructed from the source text.',
+            misconceptions: ['The source claims everything is equally important.'],
+          },
+        ],
+        quiz: [
+          {
+            question: 'What is the primary purpose of the material?',
+            options: [
+              'Summarising key concepts for study',
+              'Selling a product',
+              'Entertainment only',
+              'Replacing a textbook',
+            ],
+            correctIndex: 0,
+            explanation: 'The material is study reference content distilled for learners.',
+          },
+          {
+            question: 'How many sections does this lesson cover?',
+            options: ['One', 'Two', 'Three', 'None'],
+            correctIndex: 1,
+            explanation: 'The fake lesson generates exactly two sections.',
           },
         ],
       },

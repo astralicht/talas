@@ -5,6 +5,14 @@ export type LessonStatus = (typeof LESSON_STATUSES)[number];
 
 export const MAX_LESSON_CONTENT_LENGTH = 1_048_576;
 
+/** One multiple-choice self-test question (specs/005 follow-up). */
+export interface ILessonQuizQuestion {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation?: string;
+}
+
 export interface ILesson {
   _id: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
@@ -20,10 +28,29 @@ export interface ILesson {
   generationProvider: string;
   generationModel: string;
   promptVersion: string;
+  /** Optional multiple-choice self-test; rendered interactively, never scored server-side. */
+  quiz?: ILessonQuizQuestion[];
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
 }
+
+const quizQuestionSchema = new Schema<ILessonQuizQuestion>(
+  {
+    question: { type: String, required: true, minlength: 1, maxlength: 300 },
+    options: {
+      type: [String],
+      required: true,
+      validate: {
+        validator: (value: string[]) => Array.isArray(value) && value.length === 4,
+        message: 'A quiz question needs exactly four options',
+      },
+    },
+    correctIndex: { type: Number, required: true, min: 0, max: 3 },
+    explanation: { type: String, maxlength: 300, default: undefined },
+  },
+  { _id: false },
+);
 
 export const MIN_SOURCES_PER_LESSON = 1;
 export const MAX_SOURCES_PER_LESSON = 5;
@@ -61,6 +88,7 @@ const lessonSchema = new Schema<ILesson>(
     generationProvider: { type: String, required: true, default: 'unknown' },
     generationModel: { type: String, required: true, default: 'unknown' },
     promptVersion: { type: String, required: true, default: 'v1' },
+    quiz: { type: [quizQuestionSchema], default: undefined },
     deletedAt: { type: Date, default: null },
   },
   { timestamps: true },

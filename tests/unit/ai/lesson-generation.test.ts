@@ -69,6 +69,45 @@ describe('generated lesson schema', () => {
     expect(parseGeneratedLesson(tooManyChecks).ok).toBe(false);
   });
 
+  it('accepts a well-formed multiple-choice quiz block', () => {
+    const quizzed = {
+      ...validLesson,
+      quiz: [
+        {
+          question: 'What do light reactions produce?',
+          options: ['ATP and NADPH', 'Glucose', 'CO2', 'RuBP'],
+          correctIndex: 0,
+          explanation: 'Light reactions produce ATP and NADPH for the Calvin cycle.',
+        },
+      ],
+    };
+    expect(parseGeneratedLesson(quizzed)).toMatchObject({ ok: true, lesson: quizzed });
+  });
+
+  it('rejects quiz questions beyond their bounded shapes', () => {
+    const question = {
+      question: 'Valid question?',
+      options: ['A', 'B', 'C', 'D'],
+      correctIndex: 0,
+    };
+    // Six questions exceed the cap of five.
+    expect(
+      parseGeneratedLesson({ ...validLesson, quiz: Array.from({ length: 6 }, () => question) }).ok,
+    ).toBe(false);
+    // Three options instead of four.
+    expect(
+      parseGeneratedLesson({ ...validLesson, quiz: [{ ...question, options: ['A', 'B', 'C'] }] }).ok,
+    ).toBe(false);
+    // correctIndex outside 0-3.
+    expect(
+      parseGeneratedLesson({ ...validLesson, quiz: [{ ...question, correctIndex: 4 }] }).ok,
+    ).toBe(false);
+    // Unknown key smuggled into a question.
+    expect(
+      parseGeneratedLesson({ ...validLesson, quiz: [{ ...question, answer: 'A' }] }).ok,
+    ).toBe(false);
+  });
+
   it('rejects malformed model output with field-level issues', () => {
     const result = parseGeneratedLesson({ title: '', sections: 'not-an-array' });
     expect(result.ok).toBe(false);
@@ -169,7 +208,7 @@ describe('lesson generation', () => {
       const output = await generateLesson(input);
       expect(output.provider).toBe('openai');
       expect(output.markdown).toContain('# Photosynthesis');
-      expect(output.promptVersion).toBe('v2');
+      expect(output.promptVersion).toBe('v3');
     } finally {
       setGenerateObjectForTests(null);
     }
