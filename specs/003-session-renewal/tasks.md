@@ -63,12 +63,12 @@ middleware routing → renewal endpoint → shared helpers → test matrix.
       renewal hop; RSC pass-through; valid-token auth-page bounce), and add
       `getWithoutCookies` to `tests/helpers/client.ts` for expired-token
       simulations.
-- [ ] T007 Write `tests/contract/session-renew.test.ts`: one-hop owner renewal
+- [x] T007 Write `tests/contract/session-renew.test.ts`: one-hop owner renewal
       with fresh-cookie assertions; bounded-redirect loop regression (follow with
       a redirect cap, assert a rendered 200); missing/tampered/mismatched-nonce
       fail-closed; cross-site fetch-metadata rejection; revoked-refresh reuse
       path with cleared cookies.
-- [ ] T008 Run and green the full gate set: `pnpm typecheck`, `pnpm lint`,
+- [x] T008 Run and green the full gate set: `pnpm typecheck`, `pnpm lint`,
       `pnpm test` (unit + security), `pnpm test:integration`,
       `pnpm test:contract`, `pnpm build`.
 
