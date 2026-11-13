@@ -236,11 +236,15 @@ unit+security, 30/30 integration, 38/38 contract, 11/11 e2e.
 
 ## Step 8 — Gates & bookkeeping
 
-- [ ] Full gates: pnpm typecheck lint test test:integration test:contract test:e2e
-- [ ] Write specs/005-lesson-authoring-flow/{spec,plan,tasks}.md with checked tasks
-- [ ] Amendment notes: specs/001 (FR-008 image-only support, FR-011 unique-index
+- [x] Full gates: pnpm typecheck lint test test:integration test:contract test:e2e
+      (2026-11-13: typecheck, lint, 115/115 unit+security, 30/30 integration,
+      38/38 contract, 11/11 e2e, build — all green. IMPORTANT ORDERING: run
+      e2e LAST; its dev server overwrites .next chunks, so contract/security
+      suites must run against a fresh `pnpm build`.)
+- [x] Write specs/005-lesson-authoring-flow/{spec,plan,tasks}.md with checked tasks
+- [x] Amendment notes: specs/001 (FR-008 image-only support, FR-011 unique-index
       reinterpretation), specs/003 (new TTLs; check off T007/T008)
-- [ ] Final commit(s)
+- [x] Final commit(s)
 
 ## Dev environment notes (Windows + PowerShell)
 

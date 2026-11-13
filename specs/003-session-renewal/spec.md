@@ -146,3 +146,13 @@ revoked refresh token and confirm a cleared-cookie landing on `/login`.
   hardening headers as the middleware.
 - `tests/security/headers.test.ts` — awaited middleware matrix incl. loop-regression.
 - `tests/helpers/client.ts` — `getWithoutCookies` for expired-token simulations.
+
+## Amendments (constitution v2.0.0 + specs/005, Nov 2026)
+
+- **Session TTLs**: access tokens default to 24 hours and refresh tokens to
+  30 days (constitution v2.0.0 maximums), both configurable via
+  `SESSION_ACCESS_TTL_SECONDS` / `SESSION_REFRESH_TTL_SECONDS` with bounded
+  validation (access 300–86400, refresh 3600–2592000, refresh ≥ access).
+  Cookie max-ages follow the configured TTLs.
+- **T007** (contract suite `tests/contract/session-renew.test.ts`) and
+  **T008** (full gate set) are complete and checked off in tasks.md.

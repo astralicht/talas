@@ -281,3 +281,18 @@ overwriting the other.
 - Email delivery for verification and password reset.
 - A third-party AI model provider for lesson generation.
 - Private object storage and malware scanning for uploaded files.
+
+## Amendments (specs/005, Nov 2026)
+
+- **FR-008 amendment (image-only support)**: image-only documents are no longer
+  rejected. Sparse-text/image-only PDFs render their pages as image assets
+  (pdfjs + a canvas backend) and ride a vision path to the model; the
+  `ocr_not_supported` rejection now applies only to non-PDF formats. See
+  specs/005 FR-111.
+- **FR-011 amendment (unique-index reinterpretation)**: "no duplicate lessons
+  for one material" is now scoped per lesson creation, not per storage. The
+  global unique `{ materialId }` lesson index was replaced by a non-unique
+  `{ userId, materialId }` index: one material can power many lessons
+  (`sourceMaterialIds[]`, 1–5 distinct). Idempotency is preserved per
+  generation request (`generate_lesson_{requestId}` job ids) instead of per
+  material.
