@@ -68,6 +68,32 @@ Rejected requests MUST return 429 with a `Retry-After` header. Authentication
 endpoints MUST be rate-limited per IP and per account. LLM calls MUST also
 enforce per-request input and output token caps and a per-user daily cost budget.
 
+### V. Cross-Platform Development Compatibility
+
+The repository MUST be developable on both Windows and Linux. Shared code
+(`lib/`, `app/`, `components/`, the worker, and the test harness) MUST be
+platform-neutral: POSIX-only assumptions MUST NOT be hardcoded (absolute POSIX
+paths, `TMPDIR`-only temp handling, shell-executed `node_modules/.bin` entries),
+and anything genuinely platform-specific MUST be gated on `process.platform`
+without changing the other platform's behavior.
+
+Local development services MUST start on both platforms with an equivalent
+contract — same subcommands, ports, URLs, and `.env.local` output. The bash
+(`scripts/dev-stack.sh`) and PowerShell (`scripts/dev-stack.ps1`) stacks are
+maintained as siblings; logic both stacks need MUST live in cross-platform
+Node scripts (for example, `scripts/init-replica-set.mjs`), and platform-native
+mechanisms (fork/daemonize on POSIX, background processes on Windows) stay
+inside their own script.
+
+Build and test tooling MUST remain platform-neutral: the Next.js build MUST be
+spawned through the Node executable rather than a shell shim, the Playwright
+web server MUST NOT depend on shell-specific wrappers, and Next standalone
+output MUST stay opt-in (`NEXT_OUTPUT_STANDALONE`) so local and test-harness
+builds skip it while the Docker web image enables it. CI continues to run the
+gates on Linux; the same suite MUST pass on a Windows checkout (the temp and
+data dirs route to gitignored repo-local paths so both platforms write heavy
+files off the system drive).
+
 ## Technology Stack Constraints
 
 The following technology stack and implementation constraints are mandated for
@@ -118,6 +144,18 @@ All implementations MUST conform to the following workflow definitions:
     authenticated, tenant-scoped endpoint; downloads MUST use a
     `Content-Disposition: attachment` response, MUST never serve quarantined or
     deleted materials, and download attempts MUST be audited.
+*   **List Search, Filtering, and Sorting:** The materials and lessons list
+    pages and their list APIs MUST share one validated query contract: a bounded
+    search term, a status filter, a sort option, and pagination. List state MUST
+    live in the URL (query parameters) so views are shareable and restorable;
+    the APIs MUST validate the same schemas and reject unknown or out-of-range
+    values with 400, while the pages MUST fall back to defaults for invalid
+    parameters instead of erroring. Search MUST match case-insensitively on
+    user-visible text (material filenames; lesson titles and summaries) and MUST
+    treat the raw input literally, never as a regular expression. Status
+    filters MUST be tenant-scoped by construction, and the list APIs MUST NOT
+    change their response envelope shapes. Result sets MUST be paginated with
+    visible totals rather than silently truncated.
 *   **AI Chatbot Boundaries:** AI chat responses MUST be strictly grounded in the
     context of the user's saved lesson library, using vector search filtered by
     `userId`. Responses MUST cite the lesson or chunk they draw from. When no
@@ -248,5 +286,5 @@ this document. A violation MUST block merge until it is resolved or formally
 waived in writing by the maintainers with a stated rationale and expiry. The
 constitution MUST be reviewed at least quarterly and after any security incident.
 
-**Version**: 2.0.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-12
+**Version**: 2.1.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-16
 
