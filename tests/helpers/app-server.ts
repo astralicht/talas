@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { ensureIntegrationMongo } from './mongo';
+import { routeTestTempDirs } from './test-tmp';
 
 const globalForTestApp = globalThis as unknown as {
   __talasTestAppServer?: Promise<{ url: string; close: () => Promise<void> }>;
@@ -39,12 +40,17 @@ function repoFile(...segments: string[]): string {
 async function ensureBuiltApp(): Promise<void> {
   if (existsSync(repoFile('.next', 'BUILD_ID'))) return;
   await new Promise<void>((resolve, reject) => {
-    const build = spawn('node_modules/.bin/next', ['build'], {
+    // Spawn the build through node directly: node_modules/.bin/next is a POSIX
+    // shell script that cannot be executed on Windows.
+    const nextBin = path.join('node_modules', 'next', 'dist', 'bin', 'next');
+    const build = spawn(process.execPath, [nextBin, 'build'], {
       cwd: process.cwd(),
       env: { ...process.env, ...DEFAULTS, NODE_ENV: 'production' },
       stdio: 'inherit',
     });
-    build.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`next build exited with ${code}`))));
+    build.on('exit', (code) =>
+      code === 0 ? resolve() : reject(new Error(`next build exited with ${code}`)),
+    );
     build.on('error', reject);
   });
 }
@@ -58,7 +64,7 @@ async function ensureBuiltApp(): Promise<void> {
 export async function startTestApp(): Promise<string> {
   globalForTestApp.__talasTestAppServer ??= (async () => {
     // Route the memory server's data dirs away from the small root filesystem.
-    process.env.TMPDIR ??= '/home/astralicht/.local/tmp';
+    routeTestTempDirs();
     const mongoUri = await ensureIntegrationMongo();
     for (const [key, value] of Object.entries(DEFAULTS)) {
       (process.env as Record<string, string>)[key] = value;

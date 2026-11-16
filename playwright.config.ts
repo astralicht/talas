@@ -24,7 +24,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `corepack pnpm exec next dev --port ${port}`,
+    command: `pnpm exec next dev --port ${port}`,
     url: `http://127.0.0.1:${port}/api/health`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

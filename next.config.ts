@@ -23,7 +23,10 @@ const securityHeaders = [
 const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  output: 'standalone',
+  // Standalone output is opt-in: the Docker web image (infra/Dockerfile.web)
+  // needs it, while local and test-harness builds skip the slow standalone
+  // copy step (deep node_modules trees are expensive on Windows).
+  output: process.env.NEXT_OUTPUT_STANDALONE === 'true' ? 'standalone' : undefined,
   serverExternalPackages: [
     'argon2',
     'mongoose',

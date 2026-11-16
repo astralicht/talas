@@ -1,8 +1,10 @@
 import { afterAll, beforeAll } from 'vitest';
+import { routeTestTempDirs } from './helpers/test-tmp';
 
 // Keep mongod data dirs and temp files on the roomier filesystem: the memory
-// server can write hundreds of megabytes per instance.
-process.env.TMPDIR ??= '/home/astralicht/.local/tmp';
+// server can write hundreds of megabytes per instance. Windows points at the
+// repo-local .data dir; POSIX at the home-local tmp dir.
+routeTestTempDirs();
 
 (process.env as Record<string, string | undefined>).NODE_ENV = process.env.NODE_ENV ?? 'test';
 process.env.APP_URL = process.env.APP_URL ?? 'http://localhost:3000';
@@ -31,7 +33,9 @@ let memoryServer: { stop: () => Promise<unknown> } | null = null;
 beforeAll(async () => {
   if (process.env.USE_MEMORY_MONGO === 'true') {
     const { MongoMemoryReplSet } = await import('mongodb-memory-server');
-    const replSet = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
+    const replSet = await MongoMemoryReplSet.create({
+      replSet: { count: 1, storageEngine: 'wiredTiger' },
+    });
     memoryServer = replSet;
     process.env.DATABASE_URL = replSet.getUri('talas-test');
   }

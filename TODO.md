@@ -58,8 +58,8 @@ required (Bearer key against https://opencode.ai/inference/go/...).
 - [x] Keep flat estimator in lib/ai/budget.ts (INPUT $2.50/M, OUTPUT $10/M as
       a token proxy; real caps live upstream in the Go sub: $12/5h, $30/wk,
       $60/mo). Per-provider rates deliberately deferred. (No code change.)
-- [x] Chat-completions model IDs only for AI_MODEL_OPENGO (glm-*, kimi-k*,
-      deepseek-*, mimo-*, longcat-*, hy*, step-*); free-tier models are
+- [x] Chat-completions model IDs only for AI_MODEL_OPENGO (glm-_, kimi-k_,
+      deepseek-_, mimo-_, longcat-_, hy_, step-*); free-tier models are
       OpenCode-only (HTTP 403 externally)
 - [x] No worker changes; AI_FAKE_LESSON / AI_FAULT_INJECTION hooks unaffected
 - [x] Unit test for the new provider branch (tests/unit/ai/provider.test.ts);
@@ -227,9 +227,9 @@ unit+security, 30/30 integration, 38/38 contract, 11/11 e2e.
       --muted-foreground via @theme inline); color-scheme light dark
 - [x] Refactor ~15 components from hardcoded slate classes to semantic classes
       (34 files swept: bg-white→bg-card, bg-slate-50→bg-background,
-      text-slate-*/border-slate-*/divide-* → semantic equivalents); status
+      text-slate-_/border-slate-_/divide-* → semantic equivalents); status
       badges and banners gained dark:* variants (emerald/red/amber/indigo/sky
-      → dark:bg-*-950/dark:text-*-300); dark:prose-invert for MarkdownRenderer
+      → dark:bg-_-950/dark:text-_-300); dark:prose-invert for MarkdownRenderer
 - [x] Sun/Moon toggle in components/auth/session-nav.tsx
       (components/auth/theme-toggle.tsx, hydration-safe mounted guard)
 
@@ -249,14 +249,46 @@ unit+security, 30/30 integration, 38/38 contract, 11/11 e2e.
       reinterpretation), specs/003 (new TTLs; check off T007/T008)
 - [x] Final commit(s)
 
-## Dev environment notes (Windows + PowerShell)
+## Dev environment notes (Windows + PowerShell, Linux + bash)
 
-- pnpm 9.15.9 global (engine warning about Node 24 is benign)
-- scripts/dev-services.ps1 — starts Mongo 7 (rs0, data in .data/mongo) + Redis 8
-  (tools/redis7); node scripts/init-replica-set.mjs if .data/mongo is wiped
+Shared:
+
+- Node >=20 (engines warn on Node 24; benign). pnpm 9.15.9
+  (`npm i -g pnpm@9.15.9` on Windows; corepack works too).
+- Windows: `git config core.longpaths true` and
+  `pnpm config set store-dir D:\talas\.pnpm-store` keep long paths and the
+  package store off the small C: drive. mongod 7 needs the VC++ 2015-2022 x64
+  redistributable (both the dev stack and the mongodb-memory-server binaries).
+- `pnpm exec playwright install chromium` once per machine before e2e.
+- Replica-set bootstrap is shared: scripts/init-replica-set.mjs (mongoose
+  directConnection — no mongosh, which the MongoDB Windows zip lacks). Run it
+  whenever a data dir is wiped.
 - pnpm db:seed → alice@talas.local / bob@talas.local, password talas-local-password
-- Alice's sample-lesson download 404s until real MinIO exists (S3_FAKE store is
-  per-process); login/AI/email all work via fake modes in .env.local
+- Worker does not read .env.local itself: bash `set -a; . ./.env.local; set +a;
+pnpm worker:dev`; Windows `scripts/dev-stack.ps1 worker` (`-Db <name>` to
+  point it at another db, e.g. talas-e2e for e2e runs).
+- e2e runs LAST (its dev server overwrites .next chunks — fresh `pnpm build`
+  before contract/security if e2e ran first). Local e2e needs the dev stack up
+  plus `DATABASE_URL`/`REDIS_URL`/`S3_*` pointing at it and
+  `RATE_LIMIT_DISABLED=true` in the environment.
+
+No-Docker stacks (same ports: Mongo rs0 27098, Redis 6399, SeaweedFS S3 9002;
+data/binaries/logs under .data/dev-stack):
+
+- Windows: scripts/dev-stack.ps1 — `start [-Seed] [-Fresh] | stop | status |
+env [-Write] | seed | worker [-Db <name>]`. Binaries auto-download (MongoDB
+  Windows zip, Redis 7.4.5 community build with a Redis 5.0.14 fallback,
+  SeaweedFS 4.54 windows_amd64.zip). `env -Write` creates .env.local (PowerShell
+  `>` redirects are UTF-16, which dotenv parsers reject). Redis builds are
+  community projects — dev use only.
+- Linux: scripts/dev-stack.sh (same interface, bash; binaries auto-download
+  from fastdl.mongodb.org and seaweedfs releases). Use it when Docker is
+  unavailable (ARM boxes, restricted sandboxes).
+- Docker (Linux): scripts/dev-services.sh (Mongo RS via host networking, Redis,
+  RustFS S3 with bucket CORS; data under .data/dev-services).
+- With the real stack running, S3 uploads/downloads work end to end (the
+  S3_FAKE in-process store loses data across processes); login/AI/email work
+  via fake modes in .env.local.
 
 ## Deployment pre-flight checklist (standing session rule)
 
@@ -282,6 +314,6 @@ activated and confirmed BEFORE proceeding — anything off is a blocker.**
 - [ ] Gate order respected on the build machine: e2e LAST (its dev server
       overwrites `.next` chunks) — or a fresh `pnpm build` before deploy
 
-Linux dev stack: scripts/dev-services.sh (Mongo RS on 27098 via host
+Linux Docker dev stack: scripts/dev-services.sh (Mongo RS on 27098 via host
 networking, Redis 6399, RustFS S3 9002 with bucket CORS; data under
 .data/dev-services).

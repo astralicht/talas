@@ -94,23 +94,9 @@ start_mongo() {
     log "Mongo ready at mongodb://127.0.0.1:$MONGO_PORT/talas?replicaSet=rs0"
   fi
   # Initiate the replica set (idempotent) and wait for a writable primary.
+  # Shared with the Windows stack: scripts/init-replica-set.mjs.
   MONGO_URI="mongodb://127.0.0.1:$MONGO_PORT" MONGO_HOST="127.0.0.1:$MONGO_PORT" \
-    pnpm exec node --input-type=module -e '
-    import mongoose from "mongoose";
-    const conn = await mongoose.createConnection(process.env.MONGO_URI + "?directConnection=true").asPromise();
-    try {
-      await conn.db.admin().command({ replSetInitiate: { _id: "rs0", members: [{ _id: 0, host: process.env.MONGO_HOST }] } });
-      console.log("replSetInitiate sent");
-    } catch (e) { if (!/already initialized/i.test(String(e.message ?? e))) throw e; }
-    let primary = false;
-    for (let i = 0; i < 30; i++) {
-      if ((await conn.db.admin().command({ hello: 1 })).isWritablePrimary) { primary = true; break; }
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-    await conn.close();
-    if (!primary) process.exit(1);
-    console.log("replica set rs0 has a primary");
-  '
+    pnpm exec node scripts/init-replica-set.mjs
 }
 
 start_redis() {
