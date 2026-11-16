@@ -86,11 +86,12 @@ test.describe.serial('upload → explicit lesson request → read view', () => {
     await signIn(page);
 
     // Materials: search matches the uploaded filename case-insensitively.
+    // (.first() — dev databases persist across runs, so duplicates are normal.)
     await page.goto('/materials');
     await expect(page.getByTestId('materials-count')).toBeVisible();
     await page.getByTestId('materials-search').fill('e2e-study');
     await expect(page).toHaveURL(/materials\?q=e2e-study/, { timeout: 15_000 });
-    await expect(page.getByRole('link', { name: 'e2e-study.md' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'e2e-study.md' }).first()).toBeVisible();
 
     // A miss shows the filtered empty state; Clear resets to the unfiltered URL.
     await page.getByTestId('materials-search').fill('zzz-no-such-material-xyz');
@@ -99,7 +100,7 @@ test.describe.serial('upload → explicit lesson request → read view', () => {
     });
     await page.getByTestId('list-toolbar-clear').click();
     await expect(page).toHaveURL(/\/materials$/, { timeout: 15_000 });
-    await expect(page.getByRole('link', { name: 'e2e-study.md' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'e2e-study.md' }).first()).toBeVisible();
 
     // Sort and status selects keep the other params and navigate immediately.
     await page.getByTestId('materials-sort').selectOption('name');
@@ -111,7 +112,9 @@ test.describe.serial('upload → explicit lesson request → read view', () => {
     // The confirmed material can never be awaiting_upload again.
     await expect(page.getByText('No materials match your search or filters.')).toBeVisible();
     await page.getByTestId('list-toolbar-clear').click();
-    await expect(page.getByRole('link', { name: 'e2e-study.md' })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('link', { name: 'e2e-study.md' }).first()).toBeVisible({
+      timeout: 15_000,
+    });
 
     // Lessons: title search finds the generated lesson; draft filter shows none.
     await page.goto('/lessons');

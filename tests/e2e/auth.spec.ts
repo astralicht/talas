@@ -8,16 +8,22 @@ test.describe.serial('auth journey', () => {
     await page.goto('/register');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(password);
-    await page.getByRole('button', { name: 'Create account' }).click();
-
-    // Registration accepted; verification is pending.
-    await expect(page).toHaveURL(/verify-email|login|dashboard/);
+    // Cold dev servers compile the route mid-flight; poll like the other
+    // journeys instead of failing on a single slow request.
+    await expect(async () => {
+      const button = page.getByRole('button', { name: 'Create account' });
+      if (await button.count()) await button.click();
+      await expect(page).toHaveURL(/verify-email|login|dashboard/, { timeout: 5_000 });
+    }).toPass({ timeout: 30_000, intervals: [2_000, 5_000] });
 
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(password);
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL(/dashboard/);
+    await expect(async () => {
+      const button = page.getByRole('button', { name: 'Sign in' });
+      if (await button.count()) await button.click();
+      await expect(page).toHaveURL(/dashboard/, { timeout: 5_000 });
+    }).toPass({ timeout: 30_000, intervals: [2_000, 5_000] });
     await expect(page.getByText(email, { exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'Sign out' }).click();

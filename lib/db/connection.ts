@@ -20,7 +20,10 @@ export async function connectDb(uri?: string): Promise<typeof mongoose> {
     cache.promise = mongoose.connect(uri ?? env.DATABASE_URL, {
       autoIndex: env.NODE_ENV !== 'production',
       maxPoolSize: env.NODE_ENV === 'test' ? 5 : 20,
-      serverSelectionTimeoutMS: 10_000,
+      // The driver default (30s). A shorter window made auth requests fail on
+      // Windows when the local dev mongod listener stalls briefly (antivirus
+      // scanning WiredTiger files).
+      serverSelectionTimeoutMS: 30_000,
     });
   }
   try {

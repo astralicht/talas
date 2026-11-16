@@ -5,7 +5,6 @@ import { expect, test } from '@playwright/test';
 const email = 'alice@talas.local';
 const password = 'talas-local-password';
 
-
 /** Dev servers occasionally strand the form on /login after a successful
  * POST; poll with re-clicks so a hiccup cannot fail the whole journey. */
 async function signIn(page: import('@playwright/test').Page): Promise<void> {
@@ -54,6 +53,9 @@ test.describe.serial('keyboard operability', () => {
     await content.focus();
     await page.keyboard.press('ControlOrMeta+b');
     await expect(content).toHaveValue(/\*\*/);
+    // Let the debounced autosave settle: closing the context mid-save would
+    // strand a transaction that locks the document for the next editor test.
+    await expect(page.getByText(/Saved/)).toBeVisible({ timeout: 20_000 });
   });
 
   test('reaches settings and revision history with tab focus only', async ({ page }) => {
