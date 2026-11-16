@@ -38,7 +38,12 @@ describe('lessons endpoints contract', () => {
   it('lists lessons in the LessonList shape with summaries only', async () => {
     const response = await seeded.user.session.get('/api/lessons');
     expect(response.status).toBe(200);
-    const body = response.body as { data: Array<Record<string, unknown>>; page: number; limit: number; total: number };
+    const body = response.body as {
+      data: Array<Record<string, unknown>>;
+      page: number;
+      limit: number;
+      total: number;
+    };
     expect(Object.keys(body).sort()).toEqual(['data', 'limit', 'page', 'total']);
     const summary = body.data[0]!;
     expect(Object.keys(summary).sort()).toEqual(['id', 'title', 'updatedAt', 'version']);
@@ -49,7 +54,16 @@ describe('lessons endpoints contract', () => {
     expect(single.status).toBe(200);
     const body = single.body as Record<string, unknown>;
     expect(Object.keys(body).sort()).toEqual(
-      ['contentMarkdown', 'createdAt', 'id', 'materialId', 'summary', 'title', 'updatedAt', 'version'].sort(),
+      [
+        'contentMarkdown',
+        'createdAt',
+        'id',
+        'materialId',
+        'summary',
+        'title',
+        'updatedAt',
+        'version',
+      ].sort(),
     );
   });
 
@@ -63,7 +77,10 @@ describe('lessons endpoints contract', () => {
       contentMarkdown: `${lesson.contentMarkdown}\nAppended contract line.`,
     });
     expect(save.status).toBe(200);
-    const body = save.body as { lesson: Record<string, unknown>; revision: Record<string, unknown> };
+    const body = save.body as {
+      lesson: Record<string, unknown>;
+      revision: Record<string, unknown>;
+    };
     expect(Object.keys(body).sort()).toEqual(['lesson', 'revision']);
     expect(Object.keys(body.revision).sort()).toEqual(['authorType', 'createdAt', 'id', 'version']);
   });
@@ -81,7 +98,8 @@ describe('lessons endpoints contract', () => {
   });
 
   it('restores revisions with the same LessonSaveResponse shape', async () => {
-    const versions = (await seeded.user.session.get(`/api/lessons/${seeded.lessonId}/revisions`)).body as {
+    const versions = (await seeded.user.session.get(`/api/lessons/${seeded.lessonId}/revisions`))
+      .body as {
       data: Array<{ id: string; version: number }>;
     };
     expect(versions.data.length).toBeGreaterThan(1);
@@ -96,7 +114,9 @@ describe('lessons endpoints contract', () => {
     );
     expect(restore.status).toBe(200);
     expect(Object.keys(restore.body).sort()).toEqual(['lesson', 'revision']);
-    expect((restore.body as { lesson: { version: number } }).lesson.version).toBe(lesson.version + 1);
+    expect((restore.body as { lesson: { version: number } }).lesson.version).toBe(
+      lesson.version + 1,
+    );
   });
 
   it('rejects anonymous reads with the auth envelope', async () => {
@@ -104,5 +124,46 @@ describe('lessons endpoints contract', () => {
     const anonymous = new TestSession(appUrl);
     const response = await anonymous.get(`/api/lessons/${seeded.lessonId}`);
     expect(response.status).toBe(401);
+  });
+});
+
+describe('lessons list search, filters, and sort', () => {
+  it('searches titles case-insensitively and treats the query literally', async () => {
+    const current = await seeded.user.session.get(`/api/lessons/${seeded.lessonId}`);
+    const lesson = current.body as { version: number; title: string; contentMarkdown: string };
+    const renamed = await seeded.user.session.patch(`/api/lessons/${seeded.lessonId}`, {
+      version: lesson.version,
+      title: 'Zebra Habitat Guide',
+      contentMarkdown: lesson.contentMarkdown,
+    });
+    expect(renamed.status).toBe(200);
+
+    const match = await seeded.user.session.get('/api/lessons?q=zebra');
+    expect(match.status).toBe(200);
+    expect(
+      (match.body as { data: Array<{ title: string }> }).data.map((entry) => entry.title),
+    ).toEqual(['Zebra Habitat Guide']);
+
+    // '.*' must not be interpreted as a regex wildcard.
+    const regexProbe = await seeded.user.session.get('/api/lessons?q=.%2A');
+    expect((regexProbe.body as { data: unknown[] }).data).toHaveLength(0);
+
+    const miss = await seeded.user.session.get('/api/lessons?q=icarus');
+    expect((miss.body as { data: unknown[] }).data).toHaveLength(0);
+  });
+
+  it('filters by lesson status and keeps deleted lessons excluded', async () => {
+    const readyList = await seeded.user.session.get('/api/lessons?status=ready');
+    const readyData = (readyList.body as { data: Array<{ id: string }> }).data;
+    expect(readyData.map((entry) => entry.id)).toContain(seeded.lessonId);
+
+    const draftList = await seeded.user.session.get('/api/lessons?status=draft');
+    expect((draftList.body as { data: unknown[] }).data).toHaveLength(0);
+  });
+
+  it('rejects invalid sort and status values with 400', async () => {
+    expect((await seeded.user.session.get('/api/lessons?sort=largest')).status).toBe(400);
+    expect((await seeded.user.session.get('/api/lessons?status=deleted')).status).toBe(400);
+    expect((await seeded.user.session.get(`/api/lessons?q=${'x'.repeat(101)}`)).status).toBe(400);
   });
 });

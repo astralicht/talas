@@ -1,8 +1,12 @@
 import { Types, type FilterQuery } from 'mongoose';
 import { Material, type IMaterial, type MaterialStatus } from '@/lib/db/models/material';
 import { TenantRepository } from './tenant-repository';
-import type { Pagination } from '@/lib/validation/common';
-import { paginationToSkip } from '@/lib/validation/common';
+import { escapeRegex, paginationToSkip } from '@/lib/validation/common';
+import {
+  MATERIAL_SORT_FIELDS,
+  materialStatusesFor,
+  type MaterialListParams,
+} from '@/lib/validation/list-queries';
 
 export interface CreateMaterialInput {
   originalFilename: string;
@@ -48,10 +52,29 @@ export class MaterialRepository extends TenantRepository<IMaterial> {
     return material;
   }
 
-  async listPaged(pagination: Pagination) {
+  /**
+   * Paged, filtered, and sorted listing (search + status filter + sort are
+   * shared with the API route and the materials page through the same query
+   * schema). The search is a case-insensitive substring match on the filename.
+   */
+  async listPaged(params: MaterialListParams) {
+    const statusGroup = params.status ?? 'all';
+    const sortKey = params.sort ?? 'newest';
+    const filter = {
+      ...(params.q ? { originalFilename: { $regex: escapeRegex(params.q), $options: 'i' } } : {}),
+      ...(materialStatusesFor(statusGroup).length > 0
+        ? { status: { $in: materialStatusesFor(statusGroup) } }
+        : {}),
+    } as FilterQuery<IMaterial>;
+    const sortField = MATERIAL_SORT_FIELDS[sortKey];
     const [data, total] = await Promise.all([
-      this.list({}, { skip: paginationToSkip(pagination), limit: pagination.limit }),
-      this.count(),
+      this.list(filter, {
+        skip: paginationToSkip(params),
+        limit: params.limit,
+        sort: { [sortField.field]: sortField.direction },
+        collation: sortKey === 'name' ? { locale: 'en', strength: 2 } : undefined,
+      }),
+      this.count(filter),
     ]);
     return { data, total };
   }
@@ -79,11 +102,7 @@ export class MaterialRepository extends TenantRepository<IMaterial> {
     return Material.findById(id).exec();
   }
 
-  async markFailed(
-    id: string | Types.ObjectId,
-    failureCode: string,
-    failureMessage: string,
-  ) {
+  async markFailed(id: string | Types.ObjectId, failureCode: string, failureMessage: string) {
     return this.model
       .findOneAndUpdate(
         this.scope({ _id: id } as FilterQuery<IMaterial>),
@@ -93,11 +112,7 @@ export class MaterialRepository extends TenantRepository<IMaterial> {
       .exec();
   }
 
-  async saveParseResult(
-    id: string | Types.ObjectId,
-    pageCount: number | null,
-    charCount: number,
-  ) {
+  async saveParseResult(id: string | Types.ObjectId, pageCount: number | null, charCount: number) {
     return this.model
       .findOneAndUpdate(
         this.scope({ _id: id } as FilterQuery<IMaterial>),

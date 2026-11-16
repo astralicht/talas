@@ -2,7 +2,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestApp, stopTestApp } from '../helpers/app-server';
 import { registerVerifiedUser } from '../helpers/client';
 import { resetPipelineState } from '../helpers/pipeline';
-import { confirmMaterial, materialStatus, uploadToFakeS3, type MaterialView } from '../helpers/storage-fake';
+import {
+  confirmMaterial,
+  materialStatus,
+  uploadToFakeS3,
+  type MaterialView,
+} from '../helpers/storage-fake';
 import { TEXT_MATERIAL_BYTES } from '../fixtures/materials';
 import { runPipeline } from '../helpers/pipeline';
 
@@ -20,10 +25,21 @@ afterAll(async () => {
 describe('materials endpoints contract', () => {
   it('lists materials in the MaterialList shape', async () => {
     const user = await registerVerifiedUser(appUrl);
-    await uploadToFakeS3(user.session, user.user.id, 'list.md', 'text/markdown', TEXT_MATERIAL_BYTES);
+    await uploadToFakeS3(
+      user.session,
+      user.user.id,
+      'list.md',
+      'text/markdown',
+      TEXT_MATERIAL_BYTES,
+    );
     const response = await user.session.get('/api/materials');
     expect(response.status).toBe(200);
-    const body = response.body as { data: MaterialView[]; page: number; limit: number; total: number };
+    const body = response.body as {
+      data: MaterialView[];
+      page: number;
+      limit: number;
+      total: number;
+    };
     expect(Object.keys(body).sort()).toEqual(['data', 'limit', 'page', 'total']);
     expect(body.limit).toBe(20);
     expect(body.data.length).toBeGreaterThan(0);
@@ -131,13 +147,129 @@ describe('materials endpoints contract', () => {
 
   it('answers the ProcessingStatus shape on the status endpoint', async () => {
     const user = await registerVerifiedUser(appUrl);
-    const upload = await uploadToFakeS3(user.session, user.user.id, 'status.md', 'text/markdown', TEXT_MATERIAL_BYTES);
+    const upload = await uploadToFakeS3(
+      user.session,
+      user.user.id,
+      'status.md',
+      'text/markdown',
+      TEXT_MATERIAL_BYTES,
+    );
     const response = await materialStatus(user.session, upload.materialId);
     expect(response.status).toBe(200);
-    const body = response.body as { materialId?: string; status: string; attempts: number; updatedAt: string };
+    const body = response.body as {
+      materialId?: string;
+      status: string;
+      attempts: number;
+      updatedAt: string;
+    };
     expect(body.status).toBe('awaiting_upload');
     expect(body.attempts).toBe(0);
     expect(body.updatedAt).toBeDefined();
     expect(body.materialId).toBeUndefined(); // ProcessingStatus has no materialId duplication by design here
+  });
+});
+
+describe('materials list search, filters, and sort', () => {
+  it('searches filenames case-insensitively and treats the query literally', async () => {
+    const user = await registerVerifiedUser(appUrl);
+    await uploadToFakeS3(
+      user.session,
+      user.user.id,
+      'Quarterly-Report-2026.md',
+      'text/markdown',
+      TEXT_MATERIAL_BYTES,
+    );
+    await uploadToFakeS3(
+      user.session,
+      user.user.id,
+      'notes.md',
+      'text/markdown',
+      TEXT_MATERIAL_BYTES,
+    );
+
+    const match = await user.session.get('/api/materials?q=quarterly');
+    expect(match.status).toBe(200);
+    expect((match.body as { data: MaterialView[] }).data.map((m) => m.originalFilename)).toEqual([
+      'Quarterly-Report-2026.md',
+    ]);
+
+    // '.*' must not be interpreted as a regex wildcard.
+    const regexProbe = await user.session.get('/api/materials?q=.%2A');
+    expect((regexProbe.body as { data: MaterialView[] }).data).toHaveLength(0);
+
+    const miss = await user.session.get('/api/materials?q=no-such-file-anywhere');
+    expect((miss.body as { data: MaterialView[] }).data).toHaveLength(0);
+  });
+
+  it('filters by status group', async () => {
+    const user = await registerVerifiedUser(appUrl);
+    const ready = await uploadToFakeS3(
+      user.session,
+      user.user.id,
+      'ready.md',
+      'text/markdown',
+      TEXT_MATERIAL_BYTES,
+    );
+    await confirmMaterial(user.session, ready.materialId);
+    await runPipeline({ materialId: ready.materialId });
+    await uploadToFakeS3(
+      user.session,
+      user.user.id,
+      'awaiting.md',
+      'text/markdown',
+      TEXT_MATERIAL_BYTES,
+    );
+
+    const readyList = await user.session.get('/api/materials?status=ready');
+    const readyData = (readyList.body as { data: MaterialView[] }).data;
+    expect(readyData.length).toBeGreaterThan(0);
+    expect(readyData.every((m) => m.status === 'ready')).toBe(true);
+
+    const awaitingList = await user.session.get('/api/materials?status=awaiting_upload');
+    expect(
+      (awaitingList.body as { data: MaterialView[] }).data.every(
+        (m) => m.status === 'awaiting_upload',
+      ),
+    ).toBe(true);
+
+    // Nothing sits in a processing stage after the pipeline drained.
+    const processingList = await user.session.get('/api/materials?status=processing');
+    expect((processingList.body as { data: MaterialView[] }).data).toHaveLength(0);
+  });
+
+  it('sorts by name case-insensitively and by size', async () => {
+    const user = await registerVerifiedUser(appUrl);
+    // Byte order puts 'Banana' before 'apple'; collation must flip that.
+    await uploadToFakeS3(
+      user.session,
+      user.user.id,
+      'apple.md',
+      'text/markdown',
+      TEXT_MATERIAL_BYTES,
+    );
+    await uploadToFakeS3(
+      user.session,
+      user.user.id,
+      'Banana.md',
+      'text/markdown',
+      Buffer.alloc(10),
+    );
+
+    const byName = await user.session.get('/api/materials?sort=name');
+    expect((byName.body as { data: MaterialView[] }).data.map((m) => m.originalFilename)).toEqual([
+      'apple.md',
+      'Banana.md',
+    ]);
+
+    const bySize = await user.session.get('/api/materials?sort=largest');
+    const sizes = (bySize.body as { data: MaterialView[] }).data.map((m) => m.sizeBytes);
+    expect([...sizes].sort((a, b) => b - a)).toEqual(sizes);
+  });
+
+  it('rejects invalid sort, status, and search values with 400', async () => {
+    const user = await registerVerifiedUser(appUrl);
+    expect((await user.session.get('/api/materials?sort=shiniest')).status).toBe(400);
+    expect((await user.session.get('/api/materials?status=ready-now')).status).toBe(400);
+    expect((await user.session.get(`/api/materials?q=${'x'.repeat(101)}`)).status).toBe(400);
   });
 });

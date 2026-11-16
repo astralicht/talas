@@ -1,7 +1,7 @@
 import { route } from '@/lib/http/handler';
 import { accepted, json } from '@/lib/http/responses';
 import { errors } from '@/lib/http/errors';
-import { paginationSchema } from '@/lib/validation/common';
+import { materialListQuerySchema } from '@/lib/validation/list-queries';
 import { confirmMaterialSchema } from '@/lib/validation/materials';
 import { MaterialRepository } from '@/lib/db/repositories/material-repository';
 import { ProcessingJobRepository } from '@/lib/db/repositories/processing-job-repository';
@@ -14,17 +14,20 @@ import { auditEvents } from '@/lib/logging/audit-events';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = route({ auth: true, query: paginationSchema }, async ({ user, query }) => {
-  if (!user) throw new Error('Authenticated user missing from request context');
-  const repository = new MaterialRepository(user.id);
-  const { data, total } = await repository.listPaged(query);
-  return json({
-    data: data.map(serializeMaterial),
-    page: query.page,
-    limit: query.limit,
-    total,
-  });
-});
+export const GET = route(
+  { auth: true, query: materialListQuerySchema },
+  async ({ user, query }) => {
+    if (!user) throw new Error('Authenticated user missing from request context');
+    const repository = new MaterialRepository(user.id);
+    const { data, total } = await repository.listPaged(query);
+    return json({
+      data: data.map(serializeMaterial),
+      page: query.page,
+      limit: query.limit,
+      total,
+    });
+  },
+);
 
 class ConfirmFailure extends Error {
   constructor(
@@ -60,7 +63,10 @@ export const POST = route(
     try {
       const head = await headObject(material.storageKey);
       if (head.ContentLength !== material.sizeBytes) {
-        throw new ConfirmFailure('size_mismatch', 'The uploaded file size did not match the declared size.');
+        throw new ConfirmFailure(
+          'size_mismatch',
+          'The uploaded file size did not match the declared size.',
+        );
       }
       const bytes = await getObjectBytes(material.storageKey, material.sizeBytes);
       detectedMime = await detectAndVerifyMime({
@@ -73,16 +79,28 @@ export const POST = route(
       if (error instanceof ConfirmFailure) {
         failure = error;
       } else if ((error as { name?: unknown } | null)?.name === 'NotFound') {
-        failure = new ConfirmFailure('upload_missing', 'The uploaded file could not be found. Upload it again.');
+        failure = new ConfirmFailure(
+          'upload_missing',
+          'The uploaded file could not be found. Upload it again.',
+        );
       } else if (
         (error as { code?: unknown } | null)?.code === 'unsupported_media_type' ||
         (error as { code?: unknown } | null)?.code === 'payload_too_large'
       ) {
-        failure = new ConfirmFailure('mime_mismatch', 'The file content does not match its extension or declared type.');
+        failure = new ConfirmFailure(
+          'mime_mismatch',
+          'The file content does not match its extension or declared type.',
+        );
       } else if (material.uploadExpiresAt.getTime() < Date.now()) {
-        failure = new ConfirmFailure('upload_expired', 'The upload window expired. Start the upload again.');
+        failure = new ConfirmFailure(
+          'upload_expired',
+          'The upload window expired. Start the upload again.',
+        );
       } else {
-        failure = new ConfirmFailure('mime_mismatch', 'The file could not be verified. Upload it again.');
+        failure = new ConfirmFailure(
+          'mime_mismatch',
+          'The file could not be verified. Upload it again.',
+        );
       }
 
       await materials.markFailed(material._id.toHexString(), failure.code, failure.safeMessage);

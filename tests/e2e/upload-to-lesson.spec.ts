@@ -81,4 +81,50 @@ test.describe.serial('upload → explicit lesson request → read view', () => {
     await expect(page.getByTestId('download-material')).toBeVisible();
     await expect(page.getByTestId('regenerate-lesson')).toBeVisible();
   });
+
+  test('searches, filters, and sorts the materials and lessons lists', async ({ page }) => {
+    await signIn(page);
+
+    // Materials: search matches the uploaded filename case-insensitively.
+    await page.goto('/materials');
+    await expect(page.getByTestId('materials-count')).toBeVisible();
+    await page.getByTestId('materials-search').fill('e2e-study');
+    await expect(page).toHaveURL(/materials\?q=e2e-study/, { timeout: 15_000 });
+    await expect(page.getByRole('link', { name: 'e2e-study.md' })).toBeVisible();
+
+    // A miss shows the filtered empty state; Clear resets to the unfiltered URL.
+    await page.getByTestId('materials-search').fill('zzz-no-such-material-xyz');
+    await expect(page.getByText('No materials match your search or filters.')).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.getByTestId('list-toolbar-clear').click();
+    await expect(page).toHaveURL(/\/materials$/, { timeout: 15_000 });
+    await expect(page.getByRole('link', { name: 'e2e-study.md' })).toBeVisible();
+
+    // Sort and status selects keep the other params and navigate immediately.
+    await page.getByTestId('materials-sort').selectOption('name');
+    await expect(page).toHaveURL(/materials\?sort=name/, { timeout: 15_000 });
+    await page.getByTestId('materials-status').selectOption('awaiting_upload');
+    await expect(page).toHaveURL(/materials\?status=awaiting_upload&sort=name/, {
+      timeout: 15_000,
+    });
+    // The confirmed material can never be awaiting_upload again.
+    await expect(page.getByText('No materials match your search or filters.')).toBeVisible();
+    await page.getByTestId('list-toolbar-clear').click();
+    await expect(page.getByRole('link', { name: 'e2e-study.md' })).toBeVisible({ timeout: 15_000 });
+
+    // Lessons: title search finds the generated lesson; draft filter shows none.
+    await page.goto('/lessons');
+    await page.getByTestId('lessons-search').fill('E2E generated lesson');
+    await expect(page).toHaveURL(/lessons\?q=E2E\+generated\+lesson/, { timeout: 15_000 });
+    await expect(
+      page.getByTestId('lesson-link').filter({ hasText: 'E2E generated lesson' }).first(),
+    ).toBeVisible();
+
+    await page.goto('/lessons?status=draft');
+    await expect(page.getByText('No lessons match your search or filters.')).toBeVisible();
+    await page.getByTestId('list-toolbar-clear').click();
+    await expect(page).toHaveURL(/\/lessons$/, { timeout: 15_000 });
+    await expect(page.getByTestId('lesson-link').first()).toBeVisible();
+  });
 });

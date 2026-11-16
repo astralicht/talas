@@ -1,10 +1,4 @@
-import {
-  Types,
-  type FilterQuery,
-  type Model,
-  type QueryOptions,
-  type UpdateQuery,
-} from 'mongoose';
+import { Types, type FilterQuery, type Model, type QueryOptions, type UpdateQuery } from 'mongoose';
 
 /**
  * Base repository for tenant-scoped collections.
@@ -37,12 +31,19 @@ export class TenantRepository<T extends { userId: Types.ObjectId }> {
 
   async list(
     filter: FilterQuery<T> = {},
-    options: { skip?: number; limit?: number; sort?: Record<string, 1 | -1> } = {},
+    options: {
+      skip?: number;
+      limit?: number;
+      sort?: Record<string, 1 | -1>;
+      /** Case-insensitive sorts (name/title) need a collation on the query. */
+      collation?: { locale: string; strength?: number };
+    } = {},
   ) {
     const query = this.model
       .find(this.scope(filter))
       .sort(options.sort ?? { createdAt: -1 })
       .skip(options.skip ?? 0);
+    if (options.collation) query.collation(options.collation);
     if (options.limit !== undefined) query.limit(options.limit);
     return query.exec();
   }

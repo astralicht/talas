@@ -1,22 +1,42 @@
-import { Types } from 'mongoose';
+import { Types, type FilterQuery } from 'mongoose';
 import { Lesson, type ILesson } from '@/lib/db/models/lesson';
 import { TenantRepository } from './tenant-repository';
-import type { Pagination } from '@/lib/validation/common';
-import { paginationToSkip } from '@/lib/validation/common';
+import { escapeRegex, paginationToSkip } from '@/lib/validation/common';
+import { LESSON_SORT_FIELDS, type LessonListParams } from '@/lib/validation/list-queries';
 
 export class LessonRepository extends TenantRepository<ILesson> {
   constructor(userId: string | Types.ObjectId) {
     super(Lesson, userId);
   }
 
-  async listPaged(pagination: Pagination) {
+  /**
+   * Paged, filtered, and sorted listing (search + status filter + sort are
+   * shared with the API route and the lessons page through the same query
+   * schema). Search matches title and summary; deleted lessons stay excluded.
+   */
+  async listPaged(params: LessonListParams) {
+    const statusFilter = params.status ?? 'all';
+    const sortKey = params.sort ?? 'recent';
+    const filter = {
+      status: statusFilter === 'all' ? { $ne: 'deleted' } : statusFilter,
+      ...(params.q
+        ? {
+            $or: [
+              { title: { $regex: escapeRegex(params.q), $options: 'i' } },
+              { summary: { $regex: escapeRegex(params.q), $options: 'i' } },
+            ],
+          }
+        : {}),
+    } as FilterQuery<ILesson>;
+    const sortField = LESSON_SORT_FIELDS[sortKey];
     const [data, total] = await Promise.all([
-      this.list({ status: { $ne: 'deleted' } }, {
-        skip: paginationToSkip(pagination),
-        limit: pagination.limit,
-        sort: { updatedAt: -1 },
+      this.list(filter, {
+        skip: paginationToSkip(params),
+        limit: params.limit,
+        sort: { [sortField.field]: sortField.direction },
+        collation: sortKey === 'title' ? { locale: 'en', strength: 2 } : undefined,
       }),
-      this.count({ status: { $ne: 'deleted' } }),
+      this.count(filter),
     ]);
     return { data, total };
   }
