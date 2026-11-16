@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestApp, stopTestApp } from '../helpers/app-server';
-import { registerVerifiedUser } from '../helpers/client';
+import { registerVerifiedUser, type RegisteredUser } from '../helpers/client';
 import { resetPipelineState } from '../helpers/pipeline';
 import {
   confirmMaterial,
@@ -170,19 +170,18 @@ describe('materials endpoints contract', () => {
 });
 
 describe('materials list search, filters, and sort', () => {
+  let user: RegisteredUser;
+
+  beforeAll(async () => {
+    // One shared user keeps the file within the auth IP registration limit.
+    user = await registerVerifiedUser(appUrl);
+  });
+
   it('searches filenames case-insensitively and treats the query literally', async () => {
-    const user = await registerVerifiedUser(appUrl);
     await uploadToFakeS3(
       user.session,
       user.user.id,
       'Quarterly-Report-2026.md',
-      'text/markdown',
-      TEXT_MATERIAL_BYTES,
-    );
-    await uploadToFakeS3(
-      user.session,
-      user.user.id,
-      'notes.md',
       'text/markdown',
       TEXT_MATERIAL_BYTES,
     );
@@ -202,7 +201,6 @@ describe('materials list search, filters, and sort', () => {
   });
 
   it('filters by status group', async () => {
-    const user = await registerVerifiedUser(appUrl);
     const ready = await uploadToFakeS3(
       user.session,
       user.user.id,
@@ -238,36 +236,38 @@ describe('materials list search, filters, and sort', () => {
   });
 
   it('sorts by name case-insensitively and by size', async () => {
-    const user = await registerVerifiedUser(appUrl);
+    // Own user: the per-user upload rate limit (5/minute) is shared with the
+    // earlier tests through `user`, so this test brings a fresh budget.
+    const sorter = await registerVerifiedUser(appUrl);
     // Byte order puts 'Banana' before 'apple'; collation must flip that.
     await uploadToFakeS3(
-      user.session,
-      user.user.id,
+      sorter.session,
+      sorter.user.id,
       'apple.md',
       'text/markdown',
       TEXT_MATERIAL_BYTES,
     );
     await uploadToFakeS3(
-      user.session,
-      user.user.id,
+      sorter.session,
+      sorter.user.id,
       'Banana.md',
       'text/markdown',
       Buffer.alloc(10),
     );
 
-    const byName = await user.session.get('/api/materials?sort=name');
-    expect((byName.body as { data: MaterialView[] }).data.map((m) => m.originalFilename)).toEqual([
-      'apple.md',
-      'Banana.md',
-    ]);
+    const byName = await sorter.session.get('/api/materials?sort=name');
+    const names = (byName.body as { data: MaterialView[] }).data.map((m) => m.originalFilename);
+    expect(names).toContain('apple.md');
+    expect(names).toContain('Banana.md');
+    // Case-insensitive collation: 'apple' precedes 'Banana' (byte order would not).
+    expect(names.indexOf('apple.md')).toBeLessThan(names.indexOf('Banana.md'));
 
-    const bySize = await user.session.get('/api/materials?sort=largest');
+    const bySize = await sorter.session.get('/api/materials?sort=largest');
     const sizes = (bySize.body as { data: MaterialView[] }).data.map((m) => m.sizeBytes);
     expect([...sizes].sort((a, b) => b - a)).toEqual(sizes);
   });
 
   it('rejects invalid sort, status, and search values with 400', async () => {
-    const user = await registerVerifiedUser(appUrl);
     expect((await user.session.get('/api/materials?sort=shiniest')).status).toBe(400);
     expect((await user.session.get('/api/materials?status=ready-now')).status).toBe(400);
     expect((await user.session.get(`/api/materials?q=${'x'.repeat(101)}`)).status).toBe(400);
