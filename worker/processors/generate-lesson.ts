@@ -24,6 +24,7 @@ import {
 import { SOURCE_CHAR_CAP, TOTAL_SOURCE_CHAR_CAP } from '@/lib/ai/prompts';
 import { buildImageUrl } from '@/lib/ai/images';
 import { auditEvents } from '@/lib/logging/audit-events';
+import { refundLessonGeneration } from '@/lib/plans/allowance';
 import type {
   GenerateLessonJob,
   GenerateLessonRequestJob,
@@ -253,6 +254,16 @@ export async function processGenerateLessonRequest(
       correlationId,
       metadata: { requestId, code },
     });
+    // New-lesson requests reserved a daily-generation point at admission
+    // (constitution v2.3.0); a terminal failure refunds it so failed attempts
+    // never consume the allowance. Regenerations never reserved a point.
+    if (request && !request.existingLessonId) {
+      try {
+        await refundLessonGeneration(userId);
+      } catch (refundError) {
+        requestLogger.warn({ err: refundError }, 'Allowance refund failed');
+      }
+    }
     requestLogger.info({ code }, 'Lesson generation request failed');
     if (detail) requestLogger.warn({ err: detail, code }, 'Generation request failure detail');
   };

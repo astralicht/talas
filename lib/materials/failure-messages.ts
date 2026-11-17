@@ -11,6 +11,7 @@ export type MaterialFailureCode =
   | 'document_too_large'
   | 'encrypted_document'
   | 'malformed_document'
+  | 'plan_char_limit'
   | 'generation_failed'
   | 'provider_unavailable'
   | 'budget_exceeded'
@@ -31,6 +32,8 @@ const MESSAGES: Record<MaterialFailureCode, string> = {
   document_too_large: 'The document is larger than the processing limit.',
   encrypted_document: 'Password-protected documents are not supported.',
   malformed_document: 'The document appears to be damaged or malformed.',
+  plan_char_limit:
+    'This document is longer than your plan allows. Split it into smaller files or delete it to reclaim space.',
   generation_failed: 'The lesson could not be generated. Try again.',
   provider_unavailable: 'The AI provider is temporarily unavailable. Try again later.',
   budget_exceeded: 'You have reached today’s lesson generation limit. Try again tomorrow.',

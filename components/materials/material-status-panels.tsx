@@ -17,6 +17,9 @@ const RETRYABLE_CODES = new Set([
   'internal_error',
 ]);
 
+/** Plan character-cap failures: terminal, with a split-and-re-upload remedy. */
+const CHAR_LIMIT_CODE = 'plan_char_limit';
+
 interface StatusPanelsProps {
   materialId: string;
   initial: MaterialStatusResponse;
@@ -54,6 +57,19 @@ export function MaterialStatusPanels({ materialId, initial }: StatusPanelsProps)
           {material.failureMessage}
           {material.failureCode && RETRYABLE_CODES.has(material.failureCode) ? ' This failure can be retried.' : ''}
         </p>
+      ) : null}
+
+      {material.status === 'failed' && material.failureCode === CHAR_LIMIT_CODE ? (
+        <div
+          data-testid="split-guidance"
+          className="border-amber-300 bg-amber-50 rounded-md border px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+          <p className="font-medium">Your upload is too large for your plan.</p>
+          <p className="mt-1">
+            Split the document into smaller files and upload each part separately — every part
+            counts toward your material limit. Deleting this failed upload frees its slot.
+          </p>
+        </div>
       ) : null}
 
       {material.status === 'failed' && material.failureCode && RETRYABLE_CODES.has(material.failureCode) ? (

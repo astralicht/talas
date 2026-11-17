@@ -1,4 +1,7 @@
 import mongoose, { Schema, type Model, type HydratedDocument } from 'mongoose';
+import { PLAN_IDS } from '@/lib/plans';
+
+export type UserPlan = (typeof PLAN_IDS)[number];
 
 export const USER_STATUSES = ['active', 'disabled', 'deleting', 'deleted'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
@@ -9,6 +12,7 @@ export interface IUser {
   passwordHash: string;
   emailVerifiedAt: Date | null;
   status: UserStatus;
+  plan: UserPlan;
   failedLoginAttempts: number;
   lockedUntil: Date | null;
   lastLoginAt: Date | null;
@@ -30,6 +34,7 @@ const userSchema = new Schema<IUser>(
     passwordHash: { type: String, required: true, select: false },
     emailVerifiedAt: { type: Date, default: null },
     status: { type: String, enum: USER_STATUSES, default: 'active' },
+    plan: { type: String, enum: PLAN_IDS, default: 'free' },
     failedLoginAttempts: { type: Number, default: 0, min: 0 },
     lockedUntil: { type: Date, default: null },
     lastLoginAt: { type: Date, default: null },

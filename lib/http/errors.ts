@@ -4,6 +4,7 @@ export type ErrorCode =
   | 'validation_failed'
   | 'unauthorized'
   | 'forbidden'
+  | 'plan_limit'
   | 'not_found'
   | 'conflict'
   | 'rate_limited'
@@ -23,12 +24,14 @@ export interface ErrorEnvelope {
   message: string;
   correlationId: string;
   fields?: FieldError[];
+  details?: Record<string, unknown>;
 }
 
 export class AppError extends Error {
   readonly code: ErrorCode;
   readonly status: number;
   readonly fields?: FieldError[];
+  readonly details?: Record<string, unknown>;
   readonly expose: boolean;
   readonly retryAfter?: number;
 
@@ -36,13 +39,20 @@ export class AppError extends Error {
     code: ErrorCode,
     status: number,
     message: string,
-    options: { fields?: FieldError[]; expose?: boolean; retryAfter?: number; cause?: unknown } = {},
+    options: {
+      fields?: FieldError[];
+      details?: Record<string, unknown>;
+      expose?: boolean;
+      retryAfter?: number;
+      cause?: unknown;
+    } = {},
   ) {
     super(message, options.cause === undefined ? undefined : { cause: options.cause });
     this.name = 'AppError';
     this.code = code;
     this.status = status;
     this.fields = options.fields;
+    this.details = options.details;
     this.expose = options.expose ?? true;
     this.retryAfter = options.retryAfter;
   }
@@ -55,6 +65,8 @@ export const errors = {
     new AppError('unauthorized', 401, message),
   forbidden: (message = 'You do not have access to this resource.') =>
     new AppError('forbidden', 403, message),
+  planLimit: (message: string, details?: Record<string, unknown>) =>
+    new AppError('plan_limit', 403, message, { details }),
   notFound: (message = 'The requested resource was not found.') =>
     new AppError('not_found', 404, message),
   conflict: (message = 'The resource changed. Reload and try again.') =>
@@ -95,6 +107,7 @@ export function toEnvelope(error: unknown, correlationId: string): ErrorEnvelope
       message: error.expose ? error.message : 'An unexpected error occurred.',
       correlationId,
       ...(error.fields ? { fields: error.fields } : {}),
+      ...(error.details ? { details: error.details } : {}),
     };
   }
   return {

@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session';
 import { MaterialRepository } from '@/lib/db/repositories/material-repository';
+import { planLimitsFor } from '@/lib/plans';
+import { countUserMaterials } from '@/lib/plans/usage';
 import { MaterialList } from '@/components/materials/material-list';
 import { ListToolbar } from '@/components/ui/list-toolbar';
 import {
@@ -58,6 +60,11 @@ export default async function MaterialsPage({
   const repository = new MaterialRepository(user.id);
   const { data: initialData, total } = await repository.listPaged(query);
 
+  // Server-rendered plan quota (constitution v2.3.0): the badge counts the
+  // same live rows the enforcement checks count.
+  const limits = planLimitsFor(user.plan);
+  const materialsUsed = await countUserMaterials(user.id);
+
   const pages = Math.max(1, Math.ceil(total / query.limit));
   const page = Math.min(query.page, pages);
   let data = initialData;
@@ -82,14 +89,24 @@ export default async function MaterialsPage({
           <h1 className="text-foreground text-2xl font-semibold">Materials</h1>
           <p className="text-muted-foreground text-sm">Documents only you can see.</p>
         </div>
-        {user.emailVerified ? (
-          <Link
-            href="/materials/new"
-            className="bg-brand-600 hover:bg-brand-700 rounded-md px-4 py-2 text-sm font-medium text-white"
+        <div className="flex items-center gap-3">
+          <span
+            data-testid="materials-quota"
+            className={`border-border bg-card text-muted-foreground rounded-md border px-2.5 py-1 text-xs font-medium ${
+              materialsUsed >= limits.materials ? 'text-amber-700 dark:text-amber-300' : ''
+            }`}
           >
-            Upload material
-          </Link>
-        ) : null}
+            {materialsUsed}/{limits.materials} materials · {user.plan} plan
+          </span>
+          {user.emailVerified ? (
+            <Link
+              href="/materials/new"
+              className="bg-brand-600 hover:bg-brand-700 rounded-md px-4 py-2 text-sm font-medium text-white"
+            >
+              Upload material
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       <section className="border-border bg-card space-y-4 rounded-xl border p-6">

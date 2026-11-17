@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { ensureDbConnection } from '@/lib/db/connection';
 import { User } from '@/lib/db/models/user';
+import type { UserPlan } from '@/lib/db/models/user';
 import { errors } from '@/lib/http/errors';
 import { readCookie, ACCESS_COOKIE } from './cookies';
 import { verifyAccessToken } from './tokens';
@@ -12,6 +13,7 @@ export interface AuthenticatedUser {
   emailVerifiedAt: Date | null;
   createdAt: Date;
   status: 'active' | 'disabled' | 'deleting' | 'deleted';
+  plan: UserPlan;
 }
 
 const BLOCKED_STATUSES = new Set(['disabled', 'deleting', 'deleted']);
@@ -31,7 +33,7 @@ export async function getSessionUser(): Promise<AuthenticatedUser | null> {
   if (!Types.ObjectId.isValid(claims.userId)) return null;
 
   const user = await User.findById(claims.userId)
-    .select('email emailVerifiedAt status createdAt')
+    .select('email emailVerifiedAt status createdAt plan')
     .lean()
     .exec();
 
@@ -45,6 +47,7 @@ export async function getSessionUser(): Promise<AuthenticatedUser | null> {
     emailVerifiedAt: user.emailVerifiedAt ?? null,
     createdAt: user.createdAt,
     status: user.status,
+    plan: user.plan ?? 'free',
   };
 }
 

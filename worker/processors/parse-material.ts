@@ -7,6 +7,8 @@ import { extractDocument, DocumentParseError } from '@/lib/parsing/extract';
 import type { ExtractedImage } from '@/lib/parsing/types';
 import { persistMaterialAssets } from '@/lib/materials/asset-service';
 import { failureMessage, type MaterialFailureCode } from '@/lib/materials/failure-messages';
+import { PLAN_FAILURE_CODES } from '@/lib/plans';
+import { userPlanContext } from '@/lib/plans/usage';
 import type { ParseMaterialJob } from '@/lib/jobs/schemas';
 
 const logger = getLogger().child({ processor: 'parse_material' });
@@ -80,6 +82,25 @@ export async function processParseMaterial(payload: ParseMaterialJob): Promise<v
     await jobs.markFailed(materialId, parseFailure, failureMessage('parse_failed'));
     logger.warn({ err: error, materialId }, 'Document extraction failed');
     return;
+  }
+
+  // Plan character cap (constitution v2.3.0): a document longer than the
+  // user's plan allows fails here, before chunking or any model cost. The
+  // message tells the user how to split the upload into quota-counting files.
+  const { plan, limits } = await userPlanContext(userId);
+  if (text.length > limits.maxMaterialChars) {
+    const code = PLAN_FAILURE_CODES.chars;
+    const message =
+      `This document contains ${text.length} characters — the ${plan} plan allows ${limits.maxMaterialChars} per material. ` +
+      'Split the document into smaller files (each counts toward your material limit), or delete this upload to reclaim space.';
+    await materials.markFailed(materialId, code, message);
+    await jobs.markFailed(materialId, code, message);
+    logger.info(
+      { materialId, charCount: text.length, limit: limits.maxMaterialChars },
+      'Material exceeds the plan character limit',
+    );
+    // Deterministic outcome: retrying the same document would fail again.
+    throw new UnrecoverableError('Material exceeds the plan character limit');
   }
 
   await materials.saveParseResult(materialId, pageCount, text.length);

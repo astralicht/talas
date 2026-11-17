@@ -26,6 +26,7 @@ export const AUDIT_EVENT_TYPES = [
   'material_retry',
   'material_deleted',
   'material_downloaded',
+  'plan_limit_purge',
   'lesson_saved',
   'revision_restored',
   'lesson_deleted',

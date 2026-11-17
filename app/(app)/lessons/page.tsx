@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session';
 import { LessonRepository } from '@/lib/db/repositories/lesson-repository';
+import { planLimitsFor } from '@/lib/plans';
+import { usageSnapshot } from '@/lib/plans/usage';
 import { ListToolbar } from '@/components/ui/list-toolbar';
 import { serializeLessonSummary } from '@/lib/http/serializers';
 import {
@@ -52,6 +54,11 @@ export default async function LessonsPage({
   const repository = new LessonRepository(user.id);
   const { data: initialData, total } = await repository.listPaged(query);
 
+  // Server-rendered plan quota (constitution v2.3.0): storage slots and the
+  // daily generation allowance, matching what the routes enforce.
+  const limits = planLimitsFor(user.plan);
+  const usage = await usageSnapshot(user.id, user.plan);
+
   const pages = Math.max(1, Math.ceil(total / query.limit));
   const page = Math.min(query.page, pages);
   let data = initialData;
@@ -76,12 +83,31 @@ export default async function LessonsPage({
           <h1 className="text-foreground text-2xl font-semibold">Lessons</h1>
           <p className="text-muted-foreground text-sm">Generated and edited study lessons.</p>
         </div>
-        <Link
-          href="/lessons/new"
-          className="bg-brand-600 hover:bg-brand-700 rounded-md px-4 py-2 text-sm font-medium text-white"
-        >
-          New lesson
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <span
+            data-testid="lessons-generation-quota"
+            className="border-border bg-card text-muted-foreground rounded-md border px-2.5 py-1 text-xs font-medium"
+          >
+            {usage.generations.used}/{usage.generations.limit} generations today
+            {usage.generations.resetsAt
+              ? ` · resets ${new Date(usage.generations.resetsAt).toISOString().slice(11, 16)} UTC`
+              : ''}
+          </span>
+          <span
+            data-testid="lessons-quota"
+            className={`border-border bg-card text-muted-foreground rounded-md border px-2.5 py-1 text-xs font-medium ${
+              usage.lessons.used >= limits.lessons ? 'text-amber-700 dark:text-amber-300' : ''
+            }`}
+          >
+            {usage.lessons.used}/{limits.lessons} lessons · {usage.plan} plan
+          </span>
+          <Link
+            href="/lessons/new"
+            className="bg-brand-600 hover:bg-brand-700 rounded-md px-4 py-2 text-sm font-medium text-white"
+          >
+            New lesson
+          </Link>
+        </div>
       </div>
 
       <section className="border-border bg-card space-y-4 rounded-xl border p-6">

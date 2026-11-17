@@ -46,6 +46,7 @@ export const auditEvents = {
   materialDeleted: (context: AuditEventContext = {}) => emitAudit('material_deleted', context),
   materialDownloaded: (context: AuditEventContext = {}) =>
     emitAudit('material_downloaded', context),
+  planLimitPurge: (context: AuditEventContext = {}) => emitAudit('plan_limit_purge', context),
   lessonSaved: (context: AuditEventContext = {}) => emitAudit('lesson_saved', context),
   revisionRestored: (context: AuditEventContext = {}) => emitAudit('revision_restored', context),
   lessonDeleted: (context: AuditEventContext = {}) => emitAudit('lesson_deleted', context),

@@ -10,8 +10,8 @@ import { putObject } from '../lib/storage/s3';
 const SEED_PASSWORD = 'talas-local-password';
 
 const USERS = [
-  { email: 'alice@talas.local', label: 'Alice' },
-  { email: 'bob@talas.local', label: 'Bob' },
+  { email: 'alice@talas.local', label: 'Alice', plan: 'free' as const },
+  { email: 'bob@talas.local', label: 'Bob', plan: 'plus' as const },
 ];
 
 const SAMPLE_MARKDOWN = `# Photosynthesis
@@ -32,14 +32,19 @@ Photosynthesis converts light energy into chemical energy stored in glucose.
 | Light | ATP and NADPH |
 `;
 
-async function seedUser(email: string): Promise<Types.ObjectId> {
+async function seedUser(email: string, plan: 'free' | 'plus'): Promise<Types.ObjectId> {
   const normalized = email.toLowerCase();
   const existing = await User.findOne({ email: normalized }).exec();
   if (existing) {
     if (!existing.emailVerifiedAt) {
       existing.emailVerifiedAt = new Date();
-      await existing.save();
     }
+    // Idempotent: keep seeded plans aligned with the roadmap (Bob is plus so
+    // the e2e journey can exercise higher-tier limits).
+    if (existing.plan !== plan) {
+      existing.plan = plan;
+    }
+    await existing.save();
     return existing._id;
   }
 
@@ -48,6 +53,7 @@ async function seedUser(email: string): Promise<Types.ObjectId> {
     passwordHash: await hashPassword(SEED_PASSWORD),
     emailVerifiedAt: new Date(),
     status: 'active',
+    plan,
   });
   return user._id;
 }
@@ -111,11 +117,11 @@ async function seedSampleLesson(userId: Types.ObjectId): Promise<void> {
 async function main(): Promise<void> {
   await connectDb();
   for (const user of USERS) {
-    const userId = await seedUser(user.email);
+    const userId = await seedUser(user.email, user.plan);
     if (user.email === 'alice@talas.local') {
       await seedSampleLesson(userId);
     }
-    console.log(`Seeded ${user.label}: ${user.email}`);
+    console.log(`Seeded ${user.label}: ${user.email} (plan: ${user.plan})`);
   }
   console.log(`Seed password for both accounts: ${SEED_PASSWORD}`);
   await disconnectDb();

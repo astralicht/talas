@@ -4,6 +4,7 @@ import { errors } from '@/lib/http/errors';
 import { materialListQuerySchema } from '@/lib/validation/list-queries';
 import { confirmMaterialSchema } from '@/lib/validation/materials';
 import { MaterialRepository } from '@/lib/db/repositories/material-repository';
+import { Material } from '@/lib/db/models/material';
 import { ProcessingJobRepository } from '@/lib/db/repositories/processing-job-repository';
 import { enqueueScanForMaterial } from '@/lib/jobs/material-jobs';
 import { enforceUploadRateLimit } from '@/lib/security/upload-rate-limit';
@@ -11,6 +12,7 @@ import { headObject, getObjectBytes } from '@/lib/storage/s3';
 import { detectAndVerifyMime } from '@/lib/storage/verify-object';
 import { serializeMaterial } from '@/lib/http/serializers';
 import { auditEvents } from '@/lib/logging/audit-events';
+import { planLimitsFor, PLAN_FAILURE_CODES } from '@/lib/plans';
 
 export const dynamic = 'force-dynamic';
 
@@ -109,6 +111,22 @@ export const POST = route(
         throw errors.unsupportedMedia(failure.safeMessage);
       }
       throw errors.conflict(failure.safeMessage);
+    }
+
+    // Quota re-check (constitution v2.3.0): concurrent presigns can slip past
+    // the presign check. Counting excludes this material, so the first
+    // confirmations win; any surplus awaiting twin can be deleted by the user.
+    const limits = planLimitsFor(user.plan);
+    const others = await Material.countDocuments({
+      userId: user.id,
+      deletedAt: null,
+      _id: { $ne: material._id },
+    }).exec();
+    if (others >= limits.materials) {
+      throw errors.planLimit(
+        `Your ${user.plan} plan stores up to ${limits.materials} materials. Delete a material to free a slot, or upgrade your plan.`,
+        { reason: PLAN_FAILURE_CODES.materials, used: others + 1, limit: limits.materials },
+      );
     }
 
     const confirmed = await materials.transition(
