@@ -68,6 +68,29 @@ Rejected requests MUST return 429 with a `Retry-After` header. Authentication
 endpoints MUST be rate-limited per IP and per account. LLM calls MUST also
 enforce per-request input and output token caps and a per-user daily cost budget.
 
+Account plans constrain resource use. Every user has a plan (default `free`),
+and each plan declares — as configuration, so higher tiers can be added
+without changing enforcement logic — a material storage quota, a
+per-material extracted-text character cap, a lesson storage quota, and a
+daily lesson-generation allowance derived from that lesson quota. Uploads
+MUST be rejected with 403 once the material storage quota is reached, and
+lesson generation MUST be rejected with 403 once the lesson storage quota or
+the daily allowance is reached. A material whose extracted text exceeds the
+plan's character cap MUST fail parsing with a user-visible reason rather
+than being silently truncated or generated from. Deleting a material or
+lesson MUST free its quota, so every user can reclaim space through
+deletion. Limits apply only to new actions: records that predate a limit
+MUST NOT be purged to satisfy it.
+
+The daily generation allowance MUST be counted in a shared store so it holds
+across instances. It MUST reserve atomically when a generation request is
+admitted and MUST be refunded when that request fails terminally, and it
+MUST reset daily. Failed generation attempts MUST NOT consume the allowance,
+and regenerating an existing lesson MUST NOT consume it. When a
+quota-blocked follow-up upload meets a record that failed the character cap,
+the user MUST be informed first, after which the dead over-limit record MUST
+be purged automatically and the purge MUST be audited.
+
 ### V. Cross-Platform Development Compatibility
 
 The repository MUST be developable on both Windows and Linux. Shared code
@@ -305,5 +328,5 @@ this document. A violation MUST block merge until it is resolved or formally
 waived in writing by the maintainers with a stated rationale and expiry. The
 constitution MUST be reviewed at least quarterly and after any security incident.
 
-**Version**: 2.2.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-17
+**Version**: 2.3.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-18
 
