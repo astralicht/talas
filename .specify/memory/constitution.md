@@ -94,6 +94,25 @@ gates on Linux; the same suite MUST pass on a Windows checkout (the temp and
 data dirs route to gitignored repo-local paths so both platforms write heavy
 files off the system drive).
 
+Optional public tunneling is part of the dev-stack contract: both stacks MUST
+expose an equivalent `tunnel` subcommand that fronts the local web app
+(`http://localhost:3000`) through ngrok. The public host is configuration
+(`NGROK_DOMAIN`): unset, the stack serves a random free URL that changes on
+every restart; set, it serves a claimed static domain. Dev asset origins MUST
+accept the ngrok free-tunnel domains (wildcard `allowedDevOrigins` entries for
+`*.ngrok-free.app` and `*.ngrok-free.dev`, overridable per machine via
+`NEXT_DEV_ALLOWED_ORIGINS`), while the CORS allowlist for credentialed API
+calls stays explicit — wildcard origins remain forbidden with credentials.
+The tunnel is a foreground, user-level process: `status` MUST report it as
+optional and MUST NOT fail when it is down.
+
+Tunneling is a development convenience only: production MUST be served behind
+its own HTTPS host. An active tunnel MUST NOT weaken any guarantee —
+authentication, tenant isolation, validation, rate limits, and secrets hygiene
+apply identically to requests arriving through it — and dev credentials
+reachable behind the tunnel (for example, seeded demo accounts) MUST be
+treated as public knowledge while it is up.
+
 ## Technology Stack Constraints
 
 The following technology stack and implementation constraints are mandated for
@@ -286,5 +305,5 @@ this document. A violation MUST block merge until it is resolved or formally
 waived in writing by the maintainers with a stated rationale and expiry. The
 constitution MUST be reviewed at least quarterly and after any security incident.
 
-**Version**: 2.1.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-16
+**Version**: 2.2.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-17
 
