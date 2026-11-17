@@ -2,15 +2,12 @@
 # No-Docker dev stack for Talas: MongoDB 7 (replica set) + Redis + SeaweedFS S3.
 #
 # scripts/dev-stack.sh start [--seed] [--fresh]
-# scripts/dev-stack.sh stop | status | env | seed
+# scripts/dev-stack.sh stop | status | env | seed | tunnel
 #
-# Exposing the dev server (ngrok tunnel): the Windows stack has
-# `scripts/dev-stack.ps1 tunnel`. On Linux run ngrok directly:
-#   set -a; . ./.env.local; set +a
-#   ngrok http 3000                                        # random free URL
-#   ngrok http 3000 --domain="$NGROK_DOMAIN"               # static domain
-# (random URLs change on every restart; a static domain must be claimed once
-# at dashboard.ngrok.com/domains)
+# `tunnel` exposes the web app through ngrok (https://ngrok.com/download).
+# With NGROK_DOMAIN empty in .env.local you get a random free URL (it changes
+# on every restart); set NGROK_DOMAIN=<name>.ngrok-free.app for a static
+# domain after claiming it once at dashboard.ngrok.com/domains.
 #
 # Use this when Docker is unavailable (ARM boxes, restricted sandboxes). It is
 # the daemon counterpart of scripts/dev-services.sh: same ports and URLs, but
@@ -169,10 +166,15 @@ start_s3() {
 # ---------------------------------------------------------------- env file
 
 print_env() {
-  local a r c
+  local a r c t cors
   a="$(openssl rand -hex 24 2>/dev/null || echo dev-access-secret-please-replace-me-123456)"
   r="$(openssl rand -hex 24 2>/dev/null || echo dev-refresh-secret-please-replace-me-12345)"
   c="$(openssl rand -hex 24 2>/dev/null || echo dev-csrf-secret-please-replace-me-123456)"
+  # NGROK_DOMAIN is inherited from the caller's environment when regenerating
+  # the template; normally set it directly in .env.local (see cmd_tunnel).
+  t="${NGROK_DOMAIN:-}"
+  cors="http://localhost:3000"
+  if [[ -n "$t" ]]; then cors="$cors,https://$t"; fi
   cat <<EOF
 NODE_ENV=development
 APP_URL=http://localhost:3000
@@ -203,7 +205,8 @@ EMAIL_TRANSPORT=memory
 EMAIL_FROM="Talas <no-reply@talas.local>"
 
 LOG_LEVEL=debug
-CORS_ALLOWED_ORIGINS=http://localhost:3000
+NGROK_DOMAIN=$t
+CORS_ALLOWED_ORIGINS=$cors
 WORKER_CONCURRENCY=2
 MAX_JOB_MS=120000
 EOF
@@ -216,6 +219,27 @@ seed_db() {
   set -a; . ./.env.local; set +a
   pnpm db:indexes
   pnpm db:seed
+}
+
+cmd_tunnel() {
+  [[ -f .env.local ]] || die "No .env.local yet. Run: scripts/dev-stack.sh env > .env.local"
+  set -a; . ./.env.local; set +a
+  command -v ngrok >/dev/null 2>&1 \
+    || die "ngrok not found. Install it (https://ngrok.com/download): e.g. snap install ngrok or brew install ngrok"
+  if ! port_open 127.0.0.1 3000; then
+    log "Web is not listening on port 3000 - start it first: pnpm dev"
+  fi
+  if [[ -n "${NGROK_DOMAIN:-}" ]]; then
+    if [[ -n "${CORS_ALLOWED_ORIGINS:-}" && "${CORS_ALLOWED_ORIGINS}" != *"https://$NGROK_DOMAIN"* ]]; then
+      log "Note: add https://$NGROK_DOMAIN to CORS_ALLOWED_ORIGINS in .env.local to also allow cross-origin API calls (browsing through the tunnel needs no change)."
+    fi
+    log "Starting ngrok: https://$NGROK_DOMAIN -> http://localhost:3000 (Ctrl+C to stop)"
+    exec ngrok http 3000 --domain="$NGROK_DOMAIN"
+  else
+    log "Starting ngrok with a random free URL (changes on every restart; set NGROK_DOMAIN in .env.local for a static domain once claimed)..."
+    log 'The public URL appears in the ngrok output below ("Forwarding https://...").'
+    exec ngrok http 3000
+  fi
 }
 
 cmd_status() {
@@ -232,6 +256,23 @@ cmd_status() {
     echo "worker  : up   (pnpm worker:dev)"
   else
     echo "worker  : down (run: set -a; . .env.local; set +a; pnpm worker:dev)"; ok=0
+  fi
+  # Optional, never fails the status: the tunnel is a user-level process. The
+  # real public URL comes from ngrok's local inspection API (works for random
+  # and static domains alike).
+  local ngrok_pid tunnel_url
+  ngrok_pid="$(pgrep -x ngrok 2>/dev/null | head -n1 || true)"
+  if [[ -n "$ngrok_pid" ]]; then
+    tunnel_url="$(curl -fsS --max-time 2 http://127.0.0.1:4040/api/tunnels 2>/dev/null \
+      | node -e 'let raw="";process.stdin.on("data",(c)=>(raw+=c));process.stdin.on("end",()=>{try{const t=JSON.parse(raw).tunnels.filter((x)=>x.proto==="https");if(t.length>0)console.log(t[0].public_url);}catch{}});' \
+      || true)"
+    if [[ -n "$tunnel_url" ]]; then
+      echo "tunnel  : up   (ngrok, $tunnel_url)"
+    else
+      echo "tunnel  : up   (ngrok, endpoint starting)"
+    fi
+  else
+    echo "tunnel  : down (optional, run: scripts/dev-stack.sh tunnel)"
   fi
   [[ "$ok" == 1 ]] || exit 1
 }
@@ -309,5 +350,6 @@ case "${1:-}" in
   status) cmd_status ;;
   env) print_env ;;
   seed) seed_db ;;
-  *) die "Usage: scripts/dev-stack.sh start [--seed] [--fresh] | stop | status | env | seed" ;;
+  tunnel) cmd_tunnel ;;
+  *) die "Usage: scripts/dev-stack.sh start [--seed] [--fresh] | stop | status | env | seed | tunnel" ;;
 esac

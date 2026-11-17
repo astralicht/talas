@@ -1,6 +1,7 @@
 # Talas — Continuation Roadmap
 
-Constitution is at v2.0.0 (commit `7e73516`). **All eight steps are complete
+Constitution is at v2.2.0 (v2.1.0 = commit `a8cdbed`; v2.2.0 adds the dev
+tunneling principle under Core Principle V). **All eight steps are complete
 (Nov 2026).** Gate order note: run e2e LAST — its dev server overwrites
 `.next` chunks, so contract/security suites must run against a fresh
 `pnpm build`.
@@ -289,22 +290,24 @@ env [-Write] | seed | worker [-Db <name>]`. Binaries auto-download (MongoDB
 - With the real stack running, S3 uploads/downloads work end to end (the
   S3_FAKE in-process store loses data across processes); login/AI/email work
   via fake modes in .env.local.
-- Exposing the dev server (ngrok): `winget install ngrok.ngrok` (needs
-  >= 3.29 for current accounts; `ngrok update` if winget shipped an old one).
-  Windows: `scripts/dev-stack.ps1 tunnel` — with NGROK_DOMAIN empty in
-  .env.local it serves a random free URL that changes on every restart; set
-  `NGROK_DOMAIN=<name>.ngrok-free.app` after claiming the one free static
-  domain at dashboard.ngrok.com/domains for a permanent URL. Linux: `ngrok
-  http 3000` (add `--domain="$NGROK_DOMAIN"` after sourcing .env.local for a
-  static domain). `status` reads the real public URL from ngrok's local
-  inspection API on 127.0.0.1:4040. Same-origin browsing through the tunnel
-  needs no CORS change (bucket CORS is `*` locally); cross-origin API calls
-  additionally need the origin in CORS_ALLOWED_ORIGINS. next.config.ts
+- Exposing the dev server (ngrok): install ngrok (Windows: `winget install
+  ngrok.ngrok` — needs >= 3.29 for current accounts; `ngrok update` if winget
+  shipped an old one. Linux: snap, brew, or the official deb repo). Both dev
+  stacks expose a `tunnel` subcommand — `scripts/dev-stack.ps1 tunnel` /
+  `scripts/dev-stack.sh tunnel` — with the same NGROK_DOMAIN semantics:
+  empty in .env.local serves a random free URL that changes on every
+  restart; set `NGROK_DOMAIN=<name>.ngrok-free.app` after claiming the one
+  free static domain at dashboard.ngrok.com/domains for a permanent URL.
+  `status` reads the real public URL from ngrok's local inspection API on
+  127.0.0.1:4040. Same-origin browsing through the tunnel needs no CORS
+  change (bucket CORS is `*` locally); cross-origin API calls additionally
+  need the origin in CORS_ALLOWED_ORIGINS. next.config.ts
   allowedDevOrigins covers *.ngrok-free.dev / *.ngrok-free.app; machine-
   specific hosts (e.g. the LAN IP) go through NEXT_DEV_ALLOWED_ORIGINS.
   Material uploads through a tunnel only work from the host itself (presigned
   PUTs target the local S3 endpoint). Anyone with the URL can use the app
   (demo accounts have a known password) — stop the tunnel when done.
+  (Constitution v2.2.0 covers this under Principle V.)
 
 ## Deployment pre-flight checklist (standing session rule)
 
