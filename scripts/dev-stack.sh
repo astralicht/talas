@@ -4,6 +4,14 @@
 # scripts/dev-stack.sh start [--seed] [--fresh]
 # scripts/dev-stack.sh stop | status | env | seed
 #
+# Exposing the dev server (ngrok tunnel): the Windows stack has
+# `scripts/dev-stack.ps1 tunnel`. On Linux run ngrok directly:
+#   set -a; . ./.env.local; set +a
+#   ngrok http 3000                                        # random free URL
+#   ngrok http 3000 --domain="$NGROK_DOMAIN"               # static domain
+# (random URLs change on every restart; a static domain must be claimed once
+# at dashboard.ngrok.com/domains)
+#
 # Use this when Docker is unavailable (ARM boxes, restricted sandboxes). It is
 # the daemon counterpart of scripts/dev-services.sh: same ports and URLs, but
 # binaries run directly and live under .data/dev-stack (gitignored).

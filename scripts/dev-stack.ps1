@@ -3,7 +3,12 @@
 # layout under .data/dev-stack (gitignored). No Docker required.
 #
 #   scripts/dev-stack.ps1 start [-Seed] [-Fresh]
-#   scripts/dev-stack.ps1 stop | status | env [-Write] | seed | worker [-Db <name>]
+#   scripts/dev-stack.ps1 stop | status | env [-Write] | seed | worker [-Db <name>] | tunnel
+#
+# `tunnel` exposes the web app through ngrok (install: winget install ngrok.ngrok).
+# With NGROK_DOMAIN empty in .env.local you get a random free URL (it changes
+# on every restart); set NGROK_DOMAIN=<name>.ngrok-free.app for a static
+# domain after claiming it once at dashboard.ngrok.com/domains.
 #
 # Binaries are resolved in order: env override (MONGO_BIN / REDIS_BIN / WEED_BIN)
 # -> PATH -> .data/dev-stack -> automatic download. `worker` loads .env.local
@@ -270,6 +275,11 @@ function New-DevSecret([string]$Fallback) {
 }
 
 function New-EnvLines {
+  # NGROK_DOMAIN is picked up from the caller's environment when regenerating
+  # the template; normally set it directly in .env.local (see Start-Tunnel).
+  $tunnelDomain = if ($env:NGROK_DOMAIN) { $env:NGROK_DOMAIN } else { '' }
+  $corsOrigins = 'http://localhost:3000'
+  if ($tunnelDomain) { $corsOrigins = "$corsOrigins,https://$tunnelDomain" }
   @(
     'NODE_ENV=development',
     'APP_URL=http://localhost:3000',
@@ -300,7 +310,8 @@ function New-EnvLines {
     'EMAIL_FROM=Talas <no-reply@talas.local>',
     '',
     'LOG_LEVEL=debug',
-    'CORS_ALLOWED_ORIGINS=http://localhost:3000',
+    "NGROK_DOMAIN=$tunnelDomain",
+    "CORS_ALLOWED_ORIGINS=$corsOrigins",
     'WORKER_CONCURRENCY=2',
     'MAX_JOB_MS=120000'
   )
@@ -354,6 +365,32 @@ function Start-Worker {
   }
   Log "Starting worker (DATABASE_URL=$env:DATABASE_URL)..."
   & pnpm worker:start
+}
+
+function Start-Tunnel {
+  if (-not (Test-Path '.env.local')) { Die 'No .env.local yet. Run: scripts/dev-stack.ps1 env -Write' }
+  Load-DotEnv '.env.local'
+  $domain = $env:NGROK_DOMAIN
+  $ngrok = Get-Command ngrok -ErrorAction SilentlyContinue
+  if (-not $ngrok) {
+    $links = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\ngrok.exe'
+    if (Test-Path $links) { $ngrok = $links } else { Die 'ngrok not found. Install with: winget install ngrok.ngrok' }
+  }
+  if (-not (Test-PortOpen -Port 3000)) {
+    Log 'Web is not listening on port 3000 - start it first: pnpm dev'
+  }
+  if ($domain) {
+    $cors = $env:CORS_ALLOWED_ORIGINS
+    if ($cors -and -not $cors.Contains("https://$domain")) {
+      Log "Note: add https://$domain to CORS_ALLOWED_ORIGINS in .env.local to also allow cross-origin API calls (browsing through the tunnel needs no change)."
+    }
+    Log "Starting ngrok: https://$domain -> http://localhost:3000 (Ctrl+C to stop)"
+    & $ngrok http 3000 --domain=$domain
+  } else {
+    Log 'Starting ngrok with a random free URL (changes on every restart; set NGROK_DOMAIN in .env.local for a static domain once claimed)...'
+    Log 'The public URL appears in the ngrok output below ("Forwarding https://...").'
+    & $ngrok http 3000
+  }
 }
 
 function Stop-Stack([bool]$Quiet = $false) {
@@ -411,6 +448,25 @@ function Show-Status {
   if ($workerUp) { Log 'worker  : up   (scripts/dev-stack.ps1 worker)' }
   else { Log 'worker  : down (run: scripts/dev-stack.ps1 worker)'; $ok = $false }
 
+  # Optional, never fails the status: the tunnel is a user-level process. The
+  # real public URL comes from ngrok's local inspection API (works for random
+  # and static domains alike).
+  $ngrokProc = Get-CimInstance Win32_Process -Filter "Name = 'ngrok.exe'" -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+  if ($ngrokProc) {
+    $tunnelUrl = ''
+    try {
+      $resp = Invoke-WebRequest -Uri 'http://127.0.0.1:4040/api/tunnels' -UseBasicParsing -TimeoutSec 2
+      $tunnel = ($resp.Content | ConvertFrom-Json).tunnels |
+        Where-Object { $_.proto -eq 'https' } | Select-Object -First 1
+      if ($tunnel) { $tunnelUrl = $tunnel.public_url }
+    } catch { }
+    if ($tunnelUrl) { Log "tunnel  : up   (ngrok, $tunnelUrl)" }
+    else { Log 'tunnel  : up   (ngrok, endpoint starting)' }
+  } else {
+    Log 'tunnel  : down (optional, run: scripts/dev-stack.ps1 tunnel)'
+  }
+
   if (-not $ok) { exit 1 }
 }
 
@@ -459,7 +515,7 @@ foreach ($arg in $args) {
       'fresh' { $script:FreshFlag = $true }
       'write' { $script:WriteFlag = $true }
       'db' { $pendingDb = $true }
-      default { Die "Unknown flag: $arg. Usage: scripts/dev-stack.ps1 start [-Seed] [-Fresh] | stop | status | env [-Write] | seed | worker [-Db <name>]" }
+      default { Die "Unknown flag: $arg. Usage: scripts/dev-stack.ps1 start [-Seed] [-Fresh] | stop | status | env [-Write] | seed | worker [-Db <name>] | tunnel" }
     }
   } else {
     switch ($arg.ToLower()) {
@@ -469,12 +525,13 @@ foreach ($arg in $args) {
       'env' { $command = 'env' }
       'seed' { $command = 'seed' }
       'worker' { $command = 'worker' }
-      default { Die "Unknown argument: $arg. Usage: scripts/dev-stack.ps1 start [-Seed] [-Fresh] | stop | status | env [-Write] | seed | worker [-Db <name>]" }
+      'tunnel' { $command = 'tunnel' }
+      default { Die "Unknown argument: $arg. Usage: scripts/dev-stack.ps1 start [-Seed] [-Fresh] | stop | status | env [-Write] | seed | worker [-Db <name>] | tunnel" }
     }
   }
 }
 if ($pendingDb) { Die 'The -Db flag needs a database name (e.g. worker -Db talas-e2e)' }
-if (-not $command) { Die 'Usage: scripts/dev-stack.ps1 start [-Seed] [-Fresh] | stop | status | env [-Write] | seed | worker [-Db <name>]' }
+if (-not $command) { Die 'Usage: scripts/dev-stack.ps1 start [-Seed] [-Fresh] | stop | status | env [-Write] | seed | worker [-Db <name>] | tunnel' }
 
 switch ($command) {
   'start' { Start-Stack }
@@ -483,5 +540,6 @@ switch ($command) {
   'env' { Show-Env }
   'seed' { Invoke-Seed }
   'worker' { Start-Worker }
-  default { Die 'Usage: scripts/dev-stack.ps1 start [-Seed] [-Fresh] | stop | status | env [-Write] | seed | worker [-Db <name>]' }
+  'tunnel' { Start-Tunnel }
+  default { Die 'Usage: scripts/dev-stack.ps1 start [-Seed] [-Fresh] | stop | status | env [-Write] | seed | worker [-Db <name>] | tunnel' }
 }

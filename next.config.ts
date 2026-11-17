@@ -23,6 +23,19 @@ const securityHeaders = [
 const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Hosts allowed to request /_next/* dev assets cross-origin (Next 15.5
+  // warns, future majors will block). Wildcards cover both ngrok free-tunnel
+  // flavors: random *.ngrok-free.dev URLs and a claimed *.ngrok-free.app
+  // static domain. Machine-specific hosts such as the LAN IP go through
+  // NEXT_DEV_ALLOWED_ORIGINS=a,b (a real env var, not .env.local).
+  allowedDevOrigins: [
+    'localhost',
+    '127.0.0.1',
+    ...(process.env.NEXT_DEV_ALLOWED_ORIGINS ?? '*.ngrok-free.app,*.ngrok-free.dev')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean),
+  ],
   // Standalone output is opt-in: the Docker web image (infra/Dockerfile.web)
   // needs it, while local and test-harness builds skip the slow standalone
   // copy step (deep node_modules trees are expensive on Windows).
