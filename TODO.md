@@ -1,8 +1,9 @@
 # Talas — Continuation Roadmap
 
-Constitution is at v2.2.0 (v2.1.0 = commit `a8cdbed`; v2.2.0 adds the dev
-tunneling principle under Core Principle V). **All eight steps are complete
-(Nov 2026).** Gate order note: run e2e LAST — its dev server overwrites
+Constitution is at v2.3.0 (v2.1.0 = commit `a8cdbed` cross-platform dev +
+list search; v2.2.0 dev tunneling; v2.3.0 plan-based feature limits).
+**All eight steps are complete (Nov 2026); Step 9 (plan limits) approved,
+not started.** Gate order note: run e2e LAST — its dev server overwrites
 `.next` chunks, so contract/security suites must run against a fresh
 `pnpm build`.
 
@@ -249,6 +250,82 @@ unit+security, 30/30 integration, 38/38 contract, 11/11 e2e.
 - [x] Amendment notes: specs/001 (FR-008 image-only support, FR-011 unique-index
       reinterpretation), specs/003 (new TTLs; check off T007/T008)
 - [x] Final commit(s)
+
+## Step 9 — Plan-based feature limits (APPROVED plan, NOT STARTED)
+
+Every user is on a plan by default (`free`). Limits are per tier and derived
+from one config source, so adding a higher tier later is a config + enum
+change only — no enforcement logic edits. Billing/checkout is out of scope;
+tiers change via script/DB.
+
+Quotas (single source of truth: `lib/plans.ts`, `PLANS` keyed by plan id):
+
+| Limit                          | free  | plus | Notes |
+|--------------------------------|-------|------|-------|
+| Materials stored               | 5     | 25   | counts non-deleted (incl. awaiting_upload / failed / quarantined) |
+| Chars per material (extracted) | 10000 | 10000 | same storage conditions as free, per the plan decision |
+| Lessons stored                 | 1     | 5    | non-deleted |
+| Lesson generations per day     | 1     | 5    | = tier lesson quota; UTC daily reset; failed attempts refunded |
+
+- [ ] `lib/plans.ts` — `PLANS` record + `PLAN_IDS` enum (`'free'`, `'plus'`);
+      `dailyLessonGenerations` defaults to the tier's `lessons` quota (unit
+      test pins that derivation invariant; the field stays overridable so a
+      future high-storage tier could be capped lower). Failure codes
+      (`plan_material_limit`, `plan_lesson_limit`, `plan_char_limit`,
+      `plan_generation_limit`) declared here.
+- [ ] User model: `plan` enum field, default `'free'` (existing users read as
+      free — no migration). `scripts/set-plan.ts` + `pnpm db:set-plan <email>
+      <plan>` for manual tier changes; seed makes bob `plus`, alice stays
+      `free` (two-tier e2e coverage).
+- [ ] Usage service: per-user counts of non-deleted materials and lessons.
+- [ ] Enforcement:
+      - presign (the record-creating step) → material quota exceeded → 403
+        quota envelope; second check at upload confirm (double-submit race
+        guard)
+      - parse processor → `charCount` > plan cap → status `failed`,
+        `failureCode: plan_char_limit`, user-visible reason + split
+        guidance; fails BEFORE chunking/embedding (no wasted cost)
+      - split flow (user decision): an over-limit upload asks the user to
+        split it into multiple files, each counting against the quota; if
+        split re-uploads hit the quota wall, INFORM FIRST (403 states the
+        shortfall), then auto-purge the over-limit originals (existing
+        delete-service: S3 + chunks + assets + record; audit event
+        `plan_limit_purge`); the retry then fits
+      - `POST /api/lessons/generate` → lesson storage 403 first, then daily
+        allowance 403. Regeneration is EXEMPT from the allowance (user
+        decision); the 10/hour limiter and `AI_DAILY_BUDGET_USD` stay as-is.
+- [ ] Daily allowance counter: Redis key `plan:gen:{userId}:{UTC-date}`,
+      TTL to next UTC midnight; atomic reserve (Lua INCR with cap check) at
+      request admission, refund on terminal failure; the 403 response
+      carries `resetsAt` so the UI can show "resets in 7h".
+- [ ] `GET /api/me/usage` → `{ plan, materials: {used, limit},
+      lessons: {used, limit}, maxMaterialChars, generations: {used, limit,
+      resetsAt} }` — deliberately a SEPARATE endpoint: the list APIs MUST
+      NOT change their response envelope shapes (constitution v2.1.0). UI:
+      usage badges ("3/5 materials", "2/5 generations today · resets in
+      7h") on materials + lessons pages, quota-error dialog copy, and a
+      split-guidance banner on char-limit failures.
+- [ ] Tests: unit (plans config invariants incl. the allowance derivation,
+      usage service, allowance/reset math) · integration (each limit
+      blocked → delete frees the slot → plan switch applies immediately;
+      char-limit failure path; auto-purge on split-block; allowance refund
+      on failure; UTC rollover frees the counter) · contract (403 quota
+      envelope shape, usage endpoint auth/shape) · e2e (free journey: fill
+      both limits → errors → delete → reclaim → succeed; second generation
+      the same day → 403 even after deleting the lesson).
+- [ ] Gates: typecheck, lint, unit+security, integration, contract, build,
+      e2e LAST (fresh build for contract if e2e ran first).
+
+Notes:
+
+- Grandfathering: existing over-limit data is NEVER purged to satisfy the
+  limits — they gate only new actions. E2e uses fresh accounts (seeded data
+  may exceed free limits).
+- Constitution v2.3.0 reflects this under Principle IV (File Upload
+  Security & Resource Control).
+- Future enhancements (not this step): server-side guided document
+  splitting (PDF/DOCX auto-split is its own project); billing-driven tier
+  upgrades; per-tier AI USD budgets.
 
 ## Dev environment notes (Windows + PowerShell, Linux + bash)
 
