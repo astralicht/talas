@@ -1,8 +1,13 @@
 import { expect, test } from '@playwright/test';
+import { resetLimits } from './helpers';
 
 test.describe.serial('auth journey', () => {
   const email = `e2e-${Date.now()}@example.com`;
   const password = 'playwright-strong-password-1';
+
+  test.beforeEach(async ({ request }) => {
+    await resetLimits(request);
+  });
 
   test('registers, verifies, signs in, and signs out', async ({ page }) => {
     await page.goto('/register');

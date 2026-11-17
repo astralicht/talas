@@ -1,8 +1,10 @@
 import { expect, test } from '@playwright/test';
+import { clearAccountContent, resetLimits } from './helpers';
 
-// The seeded development account (pnpm db:seed) is email-verified, which the
-// lesson-generation route requires.
-const email = 'alice@talas.local';
+// Bob is seeded on the plus plan: the upload→generate journey needs more than
+// the free tier's single material/lesson slots (plan limits, constitution
+// v2.3.0). Alice stays on free to demo the quota limits by hand.
+const email = 'bob@talas.local';
 const password = 'talas-local-password';
 
 async function signIn(page: import('@playwright/test').Page): Promise<void> {
@@ -24,10 +26,19 @@ const MATERIAL_LINES = [
 ];
 
 test.describe.serial('upload → explicit lesson request → read view', () => {
+  test.beforeEach(async ({ request }) => {
+    await resetLimits(request);
+  });
+
   test('uploads a text material and reaches the ready overview with a use-in-lesson hint', async ({
     page,
+    request,
   }) => {
     test.setTimeout(240_000);
+    // Repeated runs against the persistent dev database would eventually fill
+    // Bob's plus-plan storage; reclaim his content before the journey (runs
+    // inside the test so the 240s test timeout covers cold route compiles).
+    await clearAccountContent(request, email, password);
     await signIn(page);
 
     await page.goto('/materials/new');

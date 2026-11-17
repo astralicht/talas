@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { resetLimits } from './helpers';
 
 // The seeded development account (pnpm db:seed) has a lesson to edit; fresh
 // registrations no longer receive lessons automatically (specs/005).
@@ -43,6 +44,10 @@ async function signIn(page: import('@playwright/test').Page): Promise<void> {
 
 test.describe.serial('lesson editor', () => {
   test.setTimeout(180_000);
+
+  test.beforeEach(async ({ request }) => {
+    await resetLimits(request);
+  });
 
   test('edits, autosaves, reloads, and sees persisted content', async ({ page }) => {
     await signIn(page);

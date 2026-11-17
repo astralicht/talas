@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { resetLimits } from './helpers';
 
 // The seeded development account (pnpm db:seed) has a lesson to edit; fresh
 // registrations no longer receive lessons automatically (specs/005).
@@ -21,6 +22,10 @@ async function signIn(page: import('@playwright/test').Page): Promise<void> {
 }
 
 test.describe.serial('keyboard operability', () => {
+  test.beforeEach(async ({ request }) => {
+    await resetLimits(request);
+  });
+
   test('completes registration and login with the keyboard only', async ({ page }) => {
     await page.goto('/register');
     await page.keyboard.press('Tab');

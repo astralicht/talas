@@ -45,7 +45,10 @@ export default defineConfig({
           environment: 'node',
           setupFiles: ['tests/setup.ts'],
           testTimeout: 120_000,
-          hookTimeout: 120_000,
+          // Cold machines: the one-time `next build` plus the first-ever mongod
+          // launch (antivirus scans the fresh binary) can exceed two minutes —
+          // same headroom as the contract and security projects.
+          hookTimeout: 300_000,
         },
       },
       {

@@ -2,10 +2,9 @@
 
 Constitution is at v2.3.0 (v2.1.0 = commit `a8cdbed` cross-platform dev +
 list search; v2.2.0 dev tunneling; v2.3.0 plan-based feature limits).
-**All eight steps are complete (Nov 2026); Step 9 (plan limits) approved,
-not started.** Gate order note: run e2e LAST — its dev server overwrites
-`.next` chunks, so contract/security suites must run against a fresh
-`pnpm build`.
+**All nine steps are complete (Nov 2026).** Gate order note: run e2e LAST —
+its dev server overwrites `.next` chunks, so contract/security suites must
+run against a fresh `pnpm build`.
 
 ## Step 1 — Session TTLs + redirect hardening (DONE in working tree, UNCOMMITTED)
 
@@ -213,8 +212,10 @@ scripts/dev-services.sh (Linux counterpart of dev-services.ps1 — Mongo RS via
 host networking so the announced address resolves, Redis, and RustFS as the
 S3-compatible store because the MinIO image is unreachable from this network;
 bucket CORS is configured by the script since presigned browser uploads need
-it). The e2e server env needs RATE_LIMIT_DISABLED=true (the constitutional
-limiters otherwise accumulate across runs in the long-lived dev process),
+it). The e2e server env used to need RATE_LIMIT_DISABLED=true because the
+constitutional limiters accumulate across runs in the long-lived dev process —
+that escape hatch is gone (Step 9, Nov 2026): limits are live everywhere and
+the e2e suite resets them per test through /api/test/reset-limits,
 and two app-level fixes came out of the journeys: the CSP connect-src now
 allows http://127.0.0.1:* and http://localhost:* outside production (local S3
 uploads are plain HTTP), and the auth e2e expectations were updated for the
@@ -267,18 +268,18 @@ Quotas (single source of truth: `lib/plans.ts`, `PLANS` keyed by plan id):
 | Lessons stored                 | 1     | 5    | non-deleted |
 | Lesson generations per day     | 1     | 5    | = tier lesson quota; UTC daily reset; failed attempts refunded |
 
-- [ ] `lib/plans.ts` — `PLANS` record + `PLAN_IDS` enum (`'free'`, `'plus'`);
+- [x] `lib/plans.ts` — `PLANS` record + `PLAN_IDS` enum (`'free'`, `'plus'`);
       `dailyLessonGenerations` defaults to the tier's `lessons` quota (unit
       test pins that derivation invariant; the field stays overridable so a
       future high-storage tier could be capped lower). Failure codes
       (`plan_material_limit`, `plan_lesson_limit`, `plan_char_limit`,
       `plan_generation_limit`) declared here.
-- [ ] User model: `plan` enum field, default `'free'` (existing users read as
+- [x] User model: `plan` enum field, default `'free'` (existing users read as
       free — no migration). `scripts/set-plan.ts` + `pnpm db:set-plan <email>
       <plan>` for manual tier changes; seed makes bob `plus`, alice stays
       `free` (two-tier e2e coverage).
-- [ ] Usage service: per-user counts of non-deleted materials and lessons.
-- [ ] Enforcement:
+- [x] Usage service: per-user counts of non-deleted materials and lessons.
+- [x] Enforcement:
       - presign (the record-creating step) → material quota exceeded → 403
         quota envelope; second check at upload confirm (double-submit race
         guard)
@@ -294,18 +295,18 @@ Quotas (single source of truth: `lib/plans.ts`, `PLANS` keyed by plan id):
       - `POST /api/lessons/generate` → lesson storage 403 first, then daily
         allowance 403. Regeneration is EXEMPT from the allowance (user
         decision); the 10/hour limiter and `AI_DAILY_BUDGET_USD` stay as-is.
-- [ ] Daily allowance counter: Redis key `plan:gen:{userId}:{UTC-date}`,
+- [x] Daily allowance counter: Redis key `plan:gen:{userId}:{UTC-date}`,
       TTL to next UTC midnight; atomic reserve (Lua INCR with cap check) at
       request admission, refund on terminal failure; the 403 response
       carries `resetsAt` so the UI can show "resets in 7h".
-- [ ] `GET /api/me/usage` → `{ plan, materials: {used, limit},
+- [x] `GET /api/me/usage` → `{ plan, materials: {used, limit},
       lessons: {used, limit}, maxMaterialChars, generations: {used, limit,
       resetsAt} }` — deliberately a SEPARATE endpoint: the list APIs MUST
       NOT change their response envelope shapes (constitution v2.1.0). UI:
       usage badges ("3/5 materials", "2/5 generations today · resets in
       7h") on materials + lessons pages, quota-error dialog copy, and a
       split-guidance banner on char-limit failures.
-- [ ] Tests: unit (plans config invariants incl. the allowance derivation,
+- [x] Tests: unit (plans config invariants incl. the allowance derivation,
       usage service, allowance/reset math) · integration (each limit
       blocked → delete frees the slot → plan switch applies immediately;
       char-limit failure path; auto-purge on split-block; allowance refund
@@ -313,8 +314,31 @@ Quotas (single source of truth: `lib/plans.ts`, `PLANS` keyed by plan id):
       envelope shape, usage endpoint auth/shape) · e2e (free journey: fill
       both limits → errors → delete → reclaim → succeed; second generation
       the same day → 403 even after deleting the lesson).
-- [ ] Gates: typecheck, lint, unit+security, integration, contract, build,
+- [x] Gates: typecheck, lint, unit+security, integration, contract, build,
       e2e LAST (fresh build for contract if e2e ran first).
+
+Step 9 notes (2026-11-18):
+
+- Landed WITH the "rate limiting live everywhere" change: the
+  `RATE_LIMIT_DISABLED` escape hatch is REMOVED from
+  `lib/security/rate-limit.ts` — every limiter enforces in every
+  environment. The e2e suite stays green via `/api/test/reset-limits`
+  (e2e-mode-only) which flushes BOTH the in-memory limiter/allowance maps
+  AND the shared-store keys (`talas-rl:*`, `talas-plan-gen:*`) — necessary
+  because `next dev` forces NODE_ENV=development, so the e2e server runs
+  Redis-backed limiters that would otherwise accumulate across runs in the
+  long-lived dev process. Limiter maps live on `globalThis` (the repo's
+  singleton convention) because next dev compiles per-route bundles.
+- The quota error envelope is a NEW `plan_limit` 403 code with a
+  `details` object (`reason`/`used`/`limit`/`purged`/`resetsAt`); the
+  generic `AppError` gained an optional `details` field (error envelope
+  stays consistent, existing consumers unaffected).
+- Playwright runs with `workers: 1` — parallel workers raced the same
+  seeded lesson's CAS versions across spec files (pre-existing flake the
+  stricter run exposed) and share the live rate-limit budget.
+- e2e repeatability: the upload journey runs as bob (plus) and reclaims his
+  content through the public API only when his usage approaches the plan
+  limits (`clearAccountContent` in tests/e2e/helpers.ts).
 
 Notes:
 
@@ -341,14 +365,22 @@ Shared:
 - Replica-set bootstrap is shared: scripts/init-replica-set.mjs (mongoose
   directConnection — no mongosh, which the MongoDB Windows zip lacks). Run it
   whenever a data dir is wiped.
-- pnpm db:seed → alice@talas.local / bob@talas.local, password talas-local-password
+- pnpm db:seed → alice@talas.local (free plan) / bob@talas.local (plus plan,
+  so the e2e upload journey can exercise higher-tier limits), password
+  talas-local-password. Switch tiers by hand with `pnpm db:set-plan <email>
+  <free|plus>`.
 - Worker does not read .env.local itself: bash `set -a; . ./.env.local; set +a;
 pnpm worker:dev`; Windows `scripts/dev-stack.ps1 worker` (`-Db <name>` to
   point it at another db, e.g. talas-e2e for e2e runs).
 - e2e runs LAST (its dev server overwrites .next chunks — fresh `pnpm build`
   before contract/security if e2e ran first). Local e2e needs the dev stack up
-  plus `DATABASE_URL`/`REDIS_URL`/`S3_*` pointing at it and
-  `RATE_LIMIT_DISABLED=true` in the environment.
+  plus `DATABASE_URL`/`REDIS_URL`/`S3_*` pointing at it (export the
+  `scripts/dev-stack.ps1 env` template in-shell — NODE_ENV=test skips
+  .env.local). Rate limits and plan quotas are LIVE in e2e: the suite resets
+  limiter + allowance state per test through `/api/test/reset-limits`
+  (e2e-mode only), the upload journey runs as bob (plus plan), and its
+  beforeAll clears bob's content so repeated runs never hit the storage
+  quotas. A plain `pnpm dev` server (no E2E_MODE) must not be reused for e2e.
 
 No-Docker stacks (same ports: Mongo rs0 27098, Redis 6399, SeaweedFS S3 9002;
 data/binaries/logs under .data/dev-stack):
@@ -396,8 +428,10 @@ activated and confirmed BEFORE proceeding — anything off is a blocker.**
       in production — that validation must pass, never be bypassed)
 - [ ] AI provider: real key + `AI_PROVIDER` set; Go subscription caps
       acknowledged ($12/5h, $30/wk, $60/mo); `AI_DAILY_BUDGET_USD` deliberate
-- [ ] Rate limits & lockout: `RATE_LIMIT_DISABLED` OFF — upload limits and
-      login lockout active (the e2e/dev convenience must not reach production)
+- [ ] Rate limits & lockout: live for every environment — there is no disable
+      switch anymore (Step 9 removed `RATE_LIMIT_DISABLED`); upload limits,
+      login lockout, and the plan quotas are always enforced. Production
+      builds never mount the e2e-only `/api/test/reset-limits` endpoint.
 - [ ] Malware scanning: real ClamAV endpoint (`CLAMAV_FAKE` empty) — infected
       files are actually quarantined
 - [ ] Storage: `S3_FAKE=false`, bucket CORS scoped to the real origin,

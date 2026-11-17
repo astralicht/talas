@@ -32,8 +32,17 @@ export const RATE_LIMITS = {
 
 type LimiterLike = Pick<RateLimiterAbstract, 'consume' | 'delete'>;
 
-const memoryLimiters = new Map<string, RateLimiterMemory>();
-const redisLimiters = new Map<string, RateLimiterRedis>();
+// Module state on globalThis: next dev compiles per-route bundles, so plain
+// module variables would give every route its own limiter map (and the test
+// reset endpoint would clear a different copy than the routes use).
+const globalForLimiters = globalThis as unknown as {
+  __talasMemoryLimiters?: Map<string, RateLimiterMemory>;
+  __talasRedisLimiters?: Map<string, RateLimiterRedis>;
+};
+const memoryLimiters: Map<string, RateLimiterMemory> =
+  (globalForLimiters.__talasMemoryLimiters ??= new Map());
+const redisLimiters: Map<string, RateLimiterRedis> =
+  (globalForLimiters.__talasRedisLimiters ??= new Map());
 
 function limiterKey(policy: RateLimitPolicy): string {
   return `${policy.points}:${policy.durationSeconds}`;
@@ -41,11 +50,6 @@ function limiterKey(policy: RateLimitPolicy): string {
 
 function redisEnabled(): boolean {
   return process.env.NODE_ENV !== 'test' && process.env.RATE_LIMIT_MEMORY !== 'true';
-}
-
-/** Local-testing escape hatch: skip every rate limit when explicitly enabled. */
-function rateLimitDisabled(): boolean {
-  return process.env.RATE_LIMIT_DISABLED === 'true';
 }
 
 async function getLimiter(policy: RateLimitPolicy): Promise<LimiterLike> {
@@ -89,15 +93,6 @@ export async function consumeRateLimit(
   policy: RateLimitPolicy,
   pointsToConsume = 1,
 ): Promise<RateLimitResult> {
-  if (rateLimitDisabled()) {
-    return {
-      allowed: true,
-      limit: policy.points,
-      remaining: policy.points,
-      resetSeconds: 0,
-      retryAfterSeconds: 0,
-    };
-  }
   const limiter = await getLimiter(policy);
   try {
     const result = await limiter.consume(key, pointsToConsume);

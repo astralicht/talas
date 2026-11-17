@@ -5,9 +5,11 @@ const port = Number(process.env.E2E_PORT ?? 3100);
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false,
+  // Serial everywhere: several journeys edit the same seeded lesson (CAS
+  // versions) and share the rate-limit budget, so parallel workers race.
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : [['list']],
   timeout: 60_000,
   expect: { timeout: 10_000 },
