@@ -5,6 +5,7 @@ import { getSessionUser } from '@/lib/auth/session';
 import { MaterialRepository } from '@/lib/db/repositories/material-repository';
 import { LessonRepository } from '@/lib/db/repositories/lesson-repository';
 import { MaterialStatusPanels } from '@/components/materials/material-status-panels';
+import { DeleteMaterialDialog } from '@/components/materials/delete-material-dialog';
 import type { MaterialStatusResponse } from '@/hooks/use-material-status';
 
 export const metadata: Metadata = { title: 'Material' };
@@ -62,14 +63,17 @@ export default async function MaterialDetailPage({
           <h1 className="text-2xl font-semibold break-words text-foreground">
             {material!.originalFilename}
           </h1>
-          {DOWNLOADABLE_STATUSES.has(material!.status) ? (
-            <a
-              href={`/api/materials/${materialId}/download`}
-              className="rounded-md border border-input bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-background"
-            >
-              Download original
-            </a>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-3">
+            {DOWNLOADABLE_STATUSES.has(material!.status) ? (
+              <a
+                href={`/api/materials/${materialId}/download`}
+                className="rounded-md border border-input bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-background"
+              >
+                Download original
+              </a>
+            ) : null}
+            <DeleteMaterialDialog materialId={materialId} />
+          </div>
         </div>
       </div>
 

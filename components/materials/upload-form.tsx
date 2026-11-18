@@ -37,19 +37,32 @@ function extensionFor(filename: string): string {
 /**
  * Upload form with client-side pre-checks (type and size), progress reporting,
  * and safe error display. The heavy validation is repeated server-side.
+ *
+ * Transport (constitution v2.4.0): the file PUTs to the authenticated
+ * application route, which writes it into the object store server-side — the
+ * flow is identical on localhost and behind the dev tunnel. Presign still
+ * creates the record and applies quota; confirm still verifies the object.
+ *
+ * Every presign creates a real record, so the attempt is cancellable: the
+ * Cancel button (and the "clear this attempt" action after a failure) deletes
+ * it through the normal deletion flow, reclaiming the quota slot.
  */
 export function UploadForm({ verified }: { verified: boolean }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stage, setStage] = useState<'idle' | 'presigning' | 'uploading' | 'confirming'>('idle');
   const [progress, setProgress] = useState(0);
+  const [attempt, setAttempt] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
 
   function onFileSelected(event: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
     setStage('idle');
     setProgress(0);
+    setAttempt(null);
     const selected = event.target.files?.[0] ?? null;
     if (!selected) {
       setFile(null);
@@ -81,6 +94,8 @@ export function UploadForm({ verified }: { verified: boolean }) {
     setError(null);
     const extension = extensionFor(file.name);
     const declared = MIME_BY_EXTENSION[extension] ?? file.type;
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
       setStage('presigning');
@@ -88,29 +103,34 @@ export function UploadForm({ verified }: { verified: boolean }) {
       const presigned = await apiRequest<PresignResponse>('/api/materials/presign', {
         method: 'POST',
         body: { filename: file.name, declaredMime: declared, sizeBytes: file.size },
+        signal: controller.signal,
       });
+      setAttempt(presigned.materialId);
 
       setStage('uploading');
       setProgress(30);
-      const response = await fetch(presigned.uploadUrl, {
+      await apiRequest(`/api/materials/${presigned.materialId}/upload`, {
         method: 'PUT',
-        headers: presigned.headers,
         body: file,
+        signal: controller.signal,
       });
-      if (!response.ok) {
-        throw new Error('The file upload failed. Try again.');
-      }
       setProgress(85);
 
       setStage('confirming');
       await apiRequest('/api/materials', {
         method: 'POST',
         body: { materialId: presigned.materialId },
+        signal: controller.signal,
       });
       setProgress(100);
 
+      abortRef.current = null;
       router.push(`/materials/${presigned.materialId}`);
     } catch (cause) {
+      abortRef.current = null;
+      if (cause instanceof Error && cause.name === 'AbortError') {
+        return; // the Cancel handler owns cleanup
+      }
       setStage('idle');
       setProgress(0);
       setError(
@@ -118,6 +138,43 @@ export function UploadForm({ verified }: { verified: boolean }) {
           ? cause.message || 'The upload failed. Try again.'
           : 'The upload failed. Try again.',
       );
+    }
+  }
+
+  /** Aborts the in-flight request and deletes the attempt's record. */
+  async function onCancel() {
+    const attemptId = attempt;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setStage('idle');
+    setProgress(0);
+    setError(null);
+    setAttempt(null);
+    if (attemptId) {
+      try {
+        await apiRequest(`/api/materials/${attemptId}`, { method: 'DELETE' });
+      } catch {
+        setError('The attempt could not be discarded. Delete it from the materials list.');
+      }
+    }
+  }
+
+  /** Deletes the record a failed attempt created so the quota slot is reclaimed. */
+  async function onClearAttempt() {
+    const attemptId = attempt;
+    if (!attemptId) return;
+    setClearing(true);
+    try {
+      await apiRequest(`/api/materials/${attemptId}`, { method: 'DELETE' });
+      setError(null);
+      setAttempt(null);
+      if (inputRef.current) inputRef.current.value = '';
+      setFile(null);
+      router.refresh();
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : 'The attempt could not be discarded.');
+    } finally {
+      setClearing(false);
     }
   }
 
@@ -166,13 +223,37 @@ export function UploadForm({ verified }: { verified: boolean }) {
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={!verified || pending || !file}
-        className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
-      >
-        {verified ? 'Upload material' : 'Verify your email to upload'}
-      </button>
+      {!pending && attempt && error ? (
+        <button
+          type="button"
+          onClick={onClearAttempt}
+          disabled={clearing}
+          data-testid="clear-upload-attempt"
+          className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/40"
+        >
+          {clearing ? 'Discarding…' : 'Discard this attempt'}
+        </button>
+      ) : null}
+
+      <div className="flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={!verified || pending || !file}
+          className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+        >
+          {verified ? 'Upload material' : 'Verify your email to upload'}
+        </button>
+        {pending ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            data-testid="cancel-upload"
+            className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-background"
+          >
+            Cancel
+          </button>
+        ) : null}
+      </div>
     </form>
   );
 }

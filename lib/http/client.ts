@@ -94,6 +94,10 @@ async function performRequest(url: string, options: RequestOptions): Promise<Res
   let body: BodyInit | undefined;
   if (options.body instanceof FormData) {
     body = options.body;
+  } else if (typeof Blob !== 'undefined' && options.body instanceof Blob) {
+    // Raw binary bodies (e.g. the material upload PUT) pass through untouched;
+    // the server derives the media type from the material record, not the wire.
+    body = options.body;
   } else if (options.body !== undefined) {
     headers.set('Content-Type', 'application/json');
     body = JSON.stringify(options.body);

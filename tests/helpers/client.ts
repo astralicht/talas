@@ -29,7 +29,9 @@ export class TestSession {
     path: string,
     options: { body?: unknown; auth?: boolean } = {},
   ): Promise<request.Response> {
-    const test = request(this.url)[method.toLowerCase() as 'get' | 'post' | 'patch' | 'delete'](path) as request.Test;
+    const test = request(this.url)[
+      method.toLowerCase() as 'get' | 'post' | 'put' | 'patch' | 'delete'
+    ](path) as request.Test;
     test.set('Cookie', this.cookieHeader());
     test.set('Accept', 'application/json');
     if (options.auth) {
@@ -86,6 +88,11 @@ export class TestSession {
 
   async post(path: string, body?: unknown): Promise<request.Response> {
     return this.request('POST', path, { body, auth: true });
+  }
+
+  /** PUT with a raw body (Buffer/Uint8Array) — the binary material upload. */
+  async put(path: string, body?: unknown): Promise<request.Response> {
+    return this.request('PUT', path, { body, auth: true });
   }
 
   async patch(path: string, body?: unknown): Promise<request.Response> {

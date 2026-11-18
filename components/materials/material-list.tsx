@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { IMaterial } from '@/lib/db/models/material';
 import { StatusBadge } from './status-badge';
+import { DeleteMaterialDialog } from './delete-material-dialog';
 
 export function MaterialList({ materials }: { materials: IMaterial[] }) {
   return (
@@ -19,7 +20,10 @@ export function MaterialList({ materials }: { materials: IMaterial[] }) {
               {material.pageCount !== null ? ` · ${material.pageCount} pages` : ''}
             </p>
           </div>
-          <StatusBadge status={material.status} />
+          <div className="flex shrink-0 items-center gap-3">
+            <StatusBadge status={material.status} />
+            <DeleteMaterialDialog materialId={material._id.toHexString()} />
+          </div>
         </li>
       ))}
     </ul>

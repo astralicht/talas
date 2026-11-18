@@ -40,15 +40,13 @@ export async function clearAccountContent(
     throw new Error(`Account cleanup could not sign in as ${email} (${login.status()})`);
   }
 
-  const usage = await request.get('/api/me/usage');
-  const snapshot = (await usage.json()) as {
-    materials: { used: number; limit: number };
-    lessons: { used: number; limit: number };
-  };
-  // Plenty of room: nothing to reclaim (the common case — fast).
-  if (snapshot.materials.used <= snapshot.materials.limit - 5 && snapshot.lessons.used <= snapshot.lessons.limit - 1) {
-    return;
-  }
+  // Always clear: stale rows from manual attempts (e.g. an upload interrupted
+  // mid-flight, left in awaiting_upload) would otherwise break the journeys'
+  // filtered-list assertions. Deleting a handful of rows is cheap.
+  //
+  // Materials are deleted per live status: the default list view includes
+  // soft-deleted rows (they never leave the list), so a bare fetch-then-delete
+  // loop would never terminate.
 
   // Auth routes rotate the CSRF pair; fetch a fresh token for the deletions.
   const rotated = await request.get('/api/auth/csrf');
@@ -64,12 +62,23 @@ export async function clearAccountContent(
       await request.delete(`/api/lessons/${lesson.id}`, { headers });
     }
   }
-  for (;;) {
-    const materials = await request.get('/api/materials?limit=50');
-    const { data } = (await materials.json()) as { data: { id: string }[] };
-    if (data.length === 0) break;
-    for (const material of data) {
-      await request.delete(`/api/materials/${material.id}`, { headers });
+
+  const LIVE_MATERIAL_STATUSES = [
+    'awaiting_upload',
+    'uploaded',
+    'processing',
+    'ready',
+    'failed',
+    'quarantined',
+  ];
+  for (const status of LIVE_MATERIAL_STATUSES) {
+    for (;;) {
+      const materials = await request.get(`/api/materials?status=${status}&limit=50`);
+      const { data } = (await materials.json()) as { data: { id: string }[] };
+      if (data.length === 0) break;
+      for (const material of data) {
+        await request.delete(`/api/materials/${material.id}`, { headers });
+      }
     }
   }
 }
