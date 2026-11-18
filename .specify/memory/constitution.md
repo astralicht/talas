@@ -49,11 +49,22 @@ PDF, DOCX, Markdown, and plain-text files MUST be accepted unless a feature
 specification explicitly adds another type. Files MUST be rejected when larger
 than 25 MB, and rejection messages MUST state the limit.
 
-Uploads MUST use short-lived, single-object presigned S3 URLs that expire within
-15 minutes, constrain content type and size, and are never publicly readable.
-Uploaded files MUST be malware-scanned before parsing, filenames MUST be
-sanitized, and file parsing MUST run in an isolated worker with hard CPU, memory,
-and timeout limits. Image-only PDF documents MUST be accepted: their pages are
+Uploads MUST follow a two-step declare-then-commit flow. The presign step
+validates the declared type and size, applies quota and rate limits, and creates
+the tenant-scoped record; the upload step commits the bytes. The bytes MUST
+travel through the authenticated, tenant-scoped application upload endpoint
+whenever the object store is not directly reachable by the client (for example,
+behind the development tunnel), with the object write performed server-side and
+the store never exposed to browsers. A short-lived, single-object presigned URL
+that expires within 15 minutes, constrains content type and size, and is never
+publicly readable MAY be used for the upload step only where the object store is
+directly client-reachable. In either transport the upload step MUST verify
+ownership, an unexpired upload window, the declared status, and the exact
+declared byte size before storing, and the confirm step MUST still verify the
+stored object's size and magic-byte media type. Uploaded files MUST be
+malware-scanned before parsing, filenames MUST be sanitized, and file parsing
+MUST run in an isolated worker with hard CPU, memory, and timeout limits.
+Image-only PDF documents MUST be accepted: their pages are
 rendered into image assets, and lesson generation MAY use vision-capable
 providers to interpret them. Diagram and image extraction from text-bearing
 PDF and DOCX files MUST be supported. Standalone raster image file types
@@ -185,7 +196,11 @@ All implementations MUST conform to the following workflow definitions:
     materials MUST remain downloadable by their owner through an
     authenticated, tenant-scoped endpoint; downloads MUST use a
     `Content-Disposition: attachment` response, MUST never serve quarantined or
-    deleted materials, and download attempts MUST be audited.
+    deleted materials, and download attempts MUST be audited. Every stored
+    material MUST offer its owner an explicit deletion action behind a
+    confirmation step, an in-flight upload MUST be cancellable, and abandoned
+    or failed upload attempts MUST remain deletable so the storage quota is
+    reclaimed.
 *   **List Search, Filtering, and Sorting:** The materials and lessons list
     pages and their list APIs MUST share one validated query contract: a bounded
     search term, a status filter, a sort option, and pagination. List state MUST
@@ -328,5 +343,5 @@ this document. A violation MUST block merge until it is resolved or formally
 waived in writing by the maintainers with a stated rationale and expiry. The
 constitution MUST be reviewed at least quarterly and after any security incident.
 
-**Version**: 2.3.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-18
+**Version**: 2.4.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-18
 
