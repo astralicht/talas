@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { Types } from 'mongoose';
 import { startTestApp, stopTestApp } from '../helpers/app-server';
 import { registerVerifiedUser, type RegisteredUser } from '../helpers/client';
 import { resetPipelineState } from '../helpers/pipeline';
@@ -10,6 +11,7 @@ import {
 } from '../helpers/storage-fake';
 import { TEXT_MATERIAL_BYTES } from '../fixtures/materials';
 import { runPipeline } from '../helpers/pipeline';
+import { Material } from '@/lib/db/models/material';
 
 let appUrl: string;
 
@@ -233,6 +235,49 @@ describe('materials list search, filters, and sort', () => {
     // Nothing sits in a processing stage after the pipeline drained.
     const processingList = await user.session.get('/api/materials?status=processing');
     expect((processingList.body as { data: MaterialView[] }).data).toHaveLength(0);
+  });
+
+  it('hides deleted materials from every list view and rejects the deleted filter', async () => {
+    // Reuses the shared `user`: the register limiter (10 per 15 minutes per
+    // IP) is shared across this file's tests, and this file already sits at
+    // the budget. Rows are seeded directly so the upload limits stay unused.
+    const keptId = new Types.ObjectId();
+    const removedId = new Types.ObjectId();
+    for (const [id, filename] of [
+      [keptId, 'kept.md'],
+      [removedId, 'removed.md'],
+    ] as const) {
+      await Material.create({
+        _id: id,
+        userId: new Types.ObjectId(user.user.id),
+        originalFilename: filename,
+        storageKey: `materials/${user.user.id}/${id.toHexString()}`,
+        declaredMime: 'text/markdown',
+        sizeBytes: 100,
+        status: 'ready',
+        scanResult: 'clean',
+        charCount: 100,
+        uploadExpiresAt: new Date(),
+      });
+    }
+
+    const deleted = await user.session.delete(`/api/materials/${removedId.toHexString()}`);
+    expect(deleted.status).toBe(204);
+
+    // The default (all statuses) view never shows soft-deleted rows.
+    const defaultList = await user.session.get('/api/materials');
+    const defaultIds = (defaultList.body as { data: MaterialView[] }).data.map((m) => m.id);
+    expect(defaultIds).toContain(keptId.toHexString());
+    expect(defaultIds).not.toContain(removedId.toHexString());
+
+    // No live status group can surface it either, and 'deleted' is not a valid
+    // filter at all (same contract as the lessons list).
+    for (const status of ['awaiting_upload', 'uploaded', 'processing', 'ready', 'failed', 'quarantined']) {
+      const list = await user.session.get(`/api/materials?status=${status}`);
+      const ids = (list.body as { data: MaterialView[] }).data.map((m) => m.id);
+      expect(ids).not.toContain(removedId.toHexString());
+    }
+    expect((await user.session.get('/api/materials?status=deleted')).status).toBe(400);
   });
 
   it('sorts by name case-insensitively and by size', async () => {

@@ -37,8 +37,23 @@ describe('material list query schema', () => {
 
   it('maps the processing group to its concrete statuses', () => {
     expect(materialStatusesFor('processing').sort()).toEqual(['processing', 'queued', 'scanning']);
-    expect(materialStatusesFor('all')).toEqual([]);
+    // 'all' is the live set: soft-deleted rows are never listable.
+    expect(materialStatusesFor('all')).toEqual([
+      'awaiting_upload',
+      'uploaded',
+      'scanning',
+      'queued',
+      'processing',
+      'ready',
+      'failed',
+      'quarantined',
+    ]);
+    expect(materialStatusesFor('all')).not.toContain('deleted');
     expect(materialStatusesFor('ready')).toEqual(['ready']);
+  });
+
+  it('rejects the deleted status filter like the lessons list', () => {
+    expect(materialListQuerySchema.safeParse({ status: 'deleted' }).success).toBe(false);
   });
 });
 

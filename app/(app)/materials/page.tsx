@@ -35,7 +35,6 @@ const MATERIAL_STATUS_OPTIONS = [
   { value: 'ready', label: 'Ready' },
   { value: 'failed', label: 'Failed' },
   { value: 'quarantined', label: 'Quarantined' },
-  { value: 'deleted', label: 'Deleted' },
 ];
 
 const MATERIAL_SORT_OPTIONS = [

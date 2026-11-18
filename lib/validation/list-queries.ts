@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { paginationSchema, strictObject } from './common';
-import type { MaterialStatus } from '@/lib/db/models/material';
+import { MATERIAL_STATUSES, type MaterialStatus } from '@/lib/db/models/material';
 
 /**
  * Shared list-query validation for the materials/lessons list endpoints
@@ -20,11 +20,15 @@ export const materialStatusGroups = [
   'ready',
   'failed',
   'quarantined',
-  'deleted',
 ] as const;
 export type MaterialStatusGroup = (typeof materialStatusGroups)[number];
 
-/** UI-friendly status groups; 'processing' bundles the in-flight statuses. */
+/**
+ * UI-friendly status groups; 'processing' bundles the in-flight statuses.
+ * There is deliberately no 'deleted' group: soft-deleted materials are never
+ * listable — the default 'all' group resolves to every live status (the
+ * lessons list behaves the same, and `status=deleted` is rejected with 400).
+ */
 const MATERIAL_STATUS_GROUP_MAP: Record<
   Exclude<MaterialStatusGroup, 'all'>,
   readonly MaterialStatus[]
@@ -35,11 +39,14 @@ const MATERIAL_STATUS_GROUP_MAP: Record<
   ready: ['ready'],
   failed: ['failed'],
   quarantined: ['quarantined'],
-  deleted: ['deleted'],
 };
 
+const LIVE_MATERIAL_STATUSES: readonly MaterialStatus[] = MATERIAL_STATUSES.filter(
+  (status) => status !== 'deleted',
+);
+
 export function materialStatusesFor(group: MaterialStatusGroup): MaterialStatus[] {
-  return group === 'all' ? [] : [...MATERIAL_STATUS_GROUP_MAP[group]];
+  return group === 'all' ? [...LIVE_MATERIAL_STATUSES] : [...MATERIAL_STATUS_GROUP_MAP[group]];
 }
 
 export const materialSorts = ['newest', 'oldest', 'name', 'largest'] as const;

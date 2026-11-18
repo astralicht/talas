@@ -42,11 +42,9 @@ export async function clearAccountContent(
 
   // Always clear: stale rows from manual attempts (e.g. an upload interrupted
   // mid-flight, left in awaiting_upload) would otherwise break the journeys'
-  // filtered-list assertions. Deleting a handful of rows is cheap.
-  //
-  // Materials are deleted per live status: the default list view includes
-  // soft-deleted rows (they never leave the list), so a bare fetch-then-delete
-  // loop would never terminate.
+  // filtered-list assertions. Deleting a handful of rows is cheap. The default
+  // list view excludes soft-deleted rows (constitution-aligned lists), so a
+  // fetch-then-delete loop terminates.
 
   // Auth routes rotate the CSRF pair; fetch a fresh token for the deletions.
   const rotated = await request.get('/api/auth/csrf');
@@ -62,23 +60,12 @@ export async function clearAccountContent(
       await request.delete(`/api/lessons/${lesson.id}`, { headers });
     }
   }
-
-  const LIVE_MATERIAL_STATUSES = [
-    'awaiting_upload',
-    'uploaded',
-    'processing',
-    'ready',
-    'failed',
-    'quarantined',
-  ];
-  for (const status of LIVE_MATERIAL_STATUSES) {
-    for (;;) {
-      const materials = await request.get(`/api/materials?status=${status}&limit=50`);
-      const { data } = (await materials.json()) as { data: { id: string }[] };
-      if (data.length === 0) break;
-      for (const material of data) {
-        await request.delete(`/api/materials/${material.id}`, { headers });
-      }
+  for (;;) {
+    const materials = await request.get('/api/materials?limit=50');
+    const { data } = (await materials.json()) as { data: { id: string }[] };
+    if (data.length === 0) break;
+    for (const material of data) {
+      await request.delete(`/api/materials/${material.id}`, { headers });
     }
   }
 }
