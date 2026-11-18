@@ -39,6 +39,10 @@ function memoryQueueMode(): boolean {
   );
 }
 
+export function isMemoryQueueMode(): boolean {
+  return memoryQueueMode();
+}
+
 function memoryJobs(): MemoryJob[] {
   if (!globalForQueues.__talasMemoryJobs) globalForQueues.__talasMemoryJobs = [];
   return globalForQueues.__talasMemoryJobs;

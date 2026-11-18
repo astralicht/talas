@@ -4,6 +4,7 @@ import { getLogger } from '@/lib/logging/logger';
 import { runWithCorrelation } from '@/lib/logging/correlation';
 import { connectDb, disconnectDb } from '@/lib/db/connection';
 import { closeQueues } from '@/lib/jobs/queues';
+import { reconcileStaleJobs } from '@/lib/jobs/reconcile';
 import {
   ACCOUNT_DELETION_QUEUE,
   LESSON_GENERATION_QUEUE,
@@ -166,6 +167,24 @@ export async function stopWorker(): Promise<void> {
 
 async function main(): Promise<void> {
   await startWorker();
+
+  // Recovery sweep: re-enqueue jobs whose durable state says "running/queued"
+  // but that no queue holds (e.g. after a Redis restart without persistence).
+  // Runs once at startup and then every minute; the sweep is idempotent.
+  const sweep = async () => {
+    try {
+      const result = await reconcileStaleJobs();
+      if (result.rescheduledMaterials > 0 || result.rescheduledRequests > 0) {
+        logger.warn({ ...result }, 'Reconciled stale jobs');
+      }
+    } catch (error) {
+      logger.error({ err: error }, 'Job reconciliation failed');
+    }
+  };
+  await sweep();
+  const sweeper = setInterval(() => void sweep(), 60_000);
+  sweeper.unref();
+
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutting down worker');
     await stopWorker();
