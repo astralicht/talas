@@ -12,6 +12,9 @@ const SEED_PASSWORD = 'talas-local-password';
 const USERS = [
   { email: 'alice@talas.local', label: 'Alice', plan: 'free' as const },
   { email: 'bob@talas.local', label: 'Bob', plan: 'plus' as const },
+  { email: 'carol@talas.local', label: 'Carol', plan: 'free' as const },
+  { email: 'dave@talas.local', label: 'Dave', plan: 'free' as const },
+  { email: 'eve@talas.local', label: 'Eve', plan: 'plus' as const },
 ];
 
 const SAMPLE_MARKDOWN = `# Photosynthesis
@@ -39,8 +42,8 @@ async function seedUser(email: string, plan: 'free' | 'plus'): Promise<Types.Obj
     if (!existing.emailVerifiedAt) {
       existing.emailVerifiedAt = new Date();
     }
-    // Idempotent: keep seeded plans aligned with the roadmap (Bob is plus so
-    // the e2e journey can exercise higher-tier limits).
+    // Idempotent: keep seeded plans aligned with the roadmap (Bob and Eve are
+    // plus so journeys can exercise higher-tier limits; the rest are free).
     if (existing.plan !== plan) {
       existing.plan = plan;
     }
@@ -123,7 +126,7 @@ async function main(): Promise<void> {
     }
     console.log(`Seeded ${user.label}: ${user.email} (plan: ${user.plan})`);
   }
-  console.log(`Seed password for both accounts: ${SEED_PASSWORD}`);
+  console.log(`Seed password for all accounts: ${SEED_PASSWORD}`);
   await disconnectDb();
 }
 

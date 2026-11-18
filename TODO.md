@@ -365,10 +365,10 @@ Shared:
 - Replica-set bootstrap is shared: scripts/init-replica-set.mjs (mongoose
   directConnection — no mongosh, which the MongoDB Windows zip lacks). Run it
   whenever a data dir is wiped.
-- pnpm db:seed → alice@talas.local (free plan) / bob@talas.local (plus plan,
-  so the e2e upload journey can exercise higher-tier limits), password
-  talas-local-password. Switch tiers by hand with `pnpm db:set-plan <email>
-  <free|plus>`.
+- pnpm db:seed → five demo accounts, password talas-local-password:
+  alice/carol/dave@talas.local (free plan), bob/eve@talas.local (plus plan,
+  so journeys can exercise higher-tier limits). Alice also gets a sample
+  lesson. Switch tiers by hand with `pnpm db:set-plan <email> <free|plus>`.
 - Worker does not read .env.local itself: bash `set -a; . ./.env.local; set +a;
 pnpm worker:dev`; Windows `scripts/dev-stack.ps1 worker` (`-Db <name>` to
   point it at another db, e.g. talas-e2e for e2e runs).
