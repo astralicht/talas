@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 
 interface ToolbarOption {
   value: string;
@@ -92,8 +93,8 @@ export function ListToolbar(props: ListToolbarProps) {
   }
 
   const inputClass =
-    'w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground';
-  const selectClass = 'rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground';
+    'w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground';
+  const selectClass = 'rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground';
 
   return (
     <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3" data-testid="list-toolbar">
@@ -163,21 +164,19 @@ export function ListToolbar(props: ListToolbarProps) {
         </select>
       </div>
 
-      <button
-        type="submit"
-        className="bg-brand-600 hover:bg-brand-700 rounded-md px-4 py-2 text-sm font-medium text-white"
-      >
+      <Button type="submit" size="sm">
         Apply
-      </button>
+      </Button>
       {props.hasFilters ? (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={onClear}
           data-testid="list-toolbar-clear"
-          className="border-border text-muted-foreground hover:text-foreground rounded-md border px-3 py-2 text-sm"
         >
           Clear
-        </button>
+        </Button>
       ) : null}
     </form>
   );

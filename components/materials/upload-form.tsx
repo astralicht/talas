@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApiError, apiRequest } from '@/lib/http/client';
+import { Button } from '@/components/ui/button';
 
 const ACCEPTED_MIME_TYPES = [
   'application/pdf',
@@ -70,7 +71,10 @@ export function UploadForm({ verified }: { verified: boolean }) {
     }
     const extension = extensionFor(selected.name);
     const declared = MIME_BY_EXTENSION[extension];
-    if (!declared || !ACCEPTED_MIME_TYPES.includes(selected.type === '' ? declared : selected.type)) {
+    if (
+      !declared ||
+      !ACCEPTED_MIME_TYPES.includes(selected.type === '' ? declared : selected.type)
+    ) {
       setError('Use a PDF, DOCX, Markdown, or plain-text file (25 MB or smaller).');
       event.target.value = '';
       setFile(null);
@@ -183,7 +187,7 @@ export function UploadForm({ verified }: { verified: boolean }) {
   return (
     <form className="space-y-4" onSubmit={onSubmit}>
       <div className="space-y-1">
-        <label htmlFor="material-file" className="text-sm font-medium text-foreground">
+        <label htmlFor="material-file" className="text-foreground text-sm font-medium">
           Study material
         </label>
         <input
@@ -194,22 +198,19 @@ export function UploadForm({ verified }: { verified: boolean }) {
           accept=".pdf,.docx,.md,.markdown,.txt"
           onChange={onFileSelected}
           disabled={!verified || pending}
-          className="block w-full rounded-md border border-input bg-card px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-brand-700"
+          className="border-input bg-card file:bg-brand-100 file:text-brand-700 block w-full rounded-lg border px-3 py-2 text-sm file:mr-3 file:rounded-full file:border-0 file:px-3 file:py-1.5 file:font-semibold"
         />
-        <p className="text-xs text-muted-foreground">
+        <p className="text-muted-foreground text-xs">
           PDF, DOCX, Markdown, or plain text, up to 25 MB.
         </p>
       </div>
 
       {pending ? (
         <div role="status">
-          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-            <div
-              className="h-full bg-brand-500 transition-all"
-              style={{ width: `${progress}%` }}
-            />
+          <div className="bg-border h-2 w-full overflow-hidden rounded-full">
+            <div className="bg-brand-500 h-full transition-all" style={{ width: `${progress}%` }} />
           </div>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="text-muted-foreground mt-2 text-sm">
             {stage === 'presigning' && 'Requesting upload…'}
             {stage === 'uploading' && 'Uploading file…'}
             {stage === 'confirming' && 'Verifying and processing…'}
@@ -224,34 +225,25 @@ export function UploadForm({ verified }: { verified: boolean }) {
       ) : null}
 
       {!pending && attempt && error ? (
-        <button
-          type="button"
+        <Button
+          variant="danger"
+          size="sm"
           onClick={onClearAttempt}
           disabled={clearing}
           data-testid="clear-upload-attempt"
-          className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/40"
         >
           {clearing ? 'Discarding…' : 'Discard this attempt'}
-        </button>
+        </Button>
       ) : null}
 
       <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={!verified || pending || !file}
-          className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
-        >
+        <Button type="submit" disabled={!verified || pending || !file}>
           {verified ? 'Upload material' : 'Verify your email to upload'}
-        </button>
+        </Button>
         {pending ? (
-          <button
-            type="button"
-            onClick={onCancel}
-            data-testid="cancel-upload"
-            className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-background"
-          >
+          <Button variant="outline" onClick={onCancel} data-testid="cancel-upload">
             Cancel
-          </button>
+          </Button>
         ) : null}
       </div>
     </form>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { apiRequest } from '@/lib/http/client';
+import { Button } from '@/components/ui/button';
 
 export interface RevisionSummary {
   id: string;
@@ -36,10 +37,10 @@ export function RevisionHistory({
       const result = await apiRequest<{
         lesson: { version: number };
         revision: { id: string };
-      }>(
-        `/api/lessons/${lessonId}/revisions/${revision.id}/restore`,
-        { method: 'POST', body: { version: revision.version } },
-      );
+      }>(`/api/lessons/${lessonId}/revisions/${revision.id}/restore`, {
+        method: 'POST',
+        body: { version: revision.version },
+      });
       onRestored(result);
       setOpen(false);
     } catch {
@@ -51,37 +52,40 @@ export function RevisionHistory({
 
   return (
     <section aria-label="Revision history">
-      <button
-        type="button"
+      <Button
+        variant="outline"
+        size="sm"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-background"
       >
         {open ? 'Hide history' : 'Revision history'}
-      </button>
+      </Button>
 
       {open ? (
-        <div className="mt-3 rounded-lg border border-border bg-background p-4">
+        <div className="border-border bg-background mt-3 rounded-2xl border p-4">
           {revisions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No revisions yet.</p>
+            <p className="text-muted-foreground text-sm">No revisions yet.</p>
           ) : (
             <ul className="space-y-2">
               {revisions.map((revision) => (
                 <li key={revision.id} className="flex items-center justify-between gap-3">
-                  <span className="text-sm text-foreground">
-                    v{revision.version} · {revision.authorType === 'system' ? 'Generated' : 'Edited'} ·{' '}
+                  <span className="text-foreground text-sm">
+                    v{revision.version} ·{' '}
+                    {revision.authorType === 'system' ? 'Generated' : 'Edited'} ·{' '}
                     {new Date(revision.createdAt).toLocaleString()}
                     {revision.version === currentVersion ? ' (current)' : ''}
                   </span>
                   {revision.version !== currentVersion ? (
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       disabled={busyVersion !== null}
                       onClick={() => void onRestore(revision)}
-                      className="whitespace-nowrap rounded-md border border-input px-2 py-1 text-xs font-medium text-foreground hover:bg-card disabled:opacity-60"
                     >
-                      {busyVersion === revision.version ? 'Restoring…' : `Restore v${revision.version}`}
-                    </button>
+                      {busyVersion === revision.version
+                        ? 'Restoring…'
+                        : `Restore v${revision.version}`}
+                    </Button>
                   ) : null}
                 </li>
               ))}

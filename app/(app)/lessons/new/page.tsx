@@ -28,13 +28,13 @@ export default async function NewLessonPage({
         <Link href="/lessons" className="text-sm text-muted-foreground hover:text-foreground">
           ← Lessons
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold text-foreground">New lesson</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">New lesson</h1>
+        <p className="text-muted-foreground text-sm">
           Name the lesson and pick the processed documents it should build on.
         </p>
       </div>
 
-      <section className="rounded-xl border border-border bg-card p-6">
+      <section className="border-border bg-card rounded-2xl border p-6">
         <NewLessonForm
           materials={ready.map((entry) => ({
             id: entry._id.toHexString(),

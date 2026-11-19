@@ -7,6 +7,7 @@ import { planLimitsFor } from '@/lib/plans';
 import { countUserMaterials } from '@/lib/plans/usage';
 import { MaterialList } from '@/components/materials/material-list';
 import { ListToolbar } from '@/components/ui/list-toolbar';
+import { buttonVariants } from '@/components/ui/button';
 import {
   buildListHref,
   materialListQuerySchema,
@@ -85,13 +86,13 @@ export default async function MaterialsPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-foreground text-2xl font-semibold">Materials</h1>
+          <h1 className="text-foreground text-3xl font-extrabold tracking-tight">Materials</h1>
           <p className="text-muted-foreground text-sm">Documents only you can see.</p>
         </div>
         <div className="flex items-center gap-3">
           <span
             data-testid="materials-quota"
-            className={`border-border bg-card text-muted-foreground rounded-md border px-2.5 py-1 text-xs font-medium ${
+            className={`border-border bg-card text-muted-foreground rounded-full border px-3 py-1.5 text-xs font-medium ${
               materialsUsed >= limits.materials ? 'text-amber-700 dark:text-amber-300' : ''
             }`}
           >
@@ -100,7 +101,7 @@ export default async function MaterialsPage({
           {user.emailVerified ? (
             <Link
               href="/materials/new"
-              className="bg-brand-600 hover:bg-brand-700 rounded-md px-4 py-2 text-sm font-medium text-white"
+              className={buttonVariants({ variant: 'primary', size: 'sm' })}
             >
               Upload material
             </Link>
@@ -108,7 +109,7 @@ export default async function MaterialsPage({
         </div>
       </div>
 
-      <section className="border-border bg-card space-y-4 rounded-xl border p-6">
+      <section className="border-border bg-card space-y-4 rounded-2xl border p-6">
         <ListToolbar
           action="/materials"
           search={{
@@ -144,7 +145,7 @@ export default async function MaterialsPage({
               <Link
                 href="/materials"
                 data-testid="materials-clear-empty"
-                className="text-brand-600 font-medium hover:underline"
+                className="text-brand-700 font-medium hover:underline"
               >
                 Clear filters
               </Link>
@@ -153,7 +154,7 @@ export default async function MaterialsPage({
             <p className="text-muted-foreground text-sm">
               No materials yet.{' '}
               {user.emailVerified ? (
-                <Link href="/materials/new" className="text-brand-600 font-medium hover:underline">
+                <Link href="/materials/new" className="text-brand-700 font-medium hover:underline">
                   Upload your first document.
                 </Link>
               ) : (
@@ -173,7 +174,7 @@ export default async function MaterialsPage({
                   {page > 1 ? (
                     <Link
                       href={href(page - 1)}
-                      className="text-brand-600 font-medium hover:underline"
+                      className="text-brand-700 font-medium hover:underline"
                     >
                       Previous
                     </Link>
@@ -186,7 +187,7 @@ export default async function MaterialsPage({
                   {page < pages ? (
                     <Link
                       href={href(page + 1)}
-                      className="text-brand-600 font-medium hover:underline"
+                      className="text-brand-700 font-medium hover:underline"
                     >
                       Next
                     </Link>

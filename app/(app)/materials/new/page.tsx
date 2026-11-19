@@ -14,8 +14,10 @@ export default async function NewMaterialPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Upload a study material</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
+          Upload a study material
+        </h1>
+        <p className="text-muted-foreground text-sm">
           Your document is scanned for malware, parsed, and turned into a structured lesson.
         </p>
       </div>
@@ -30,7 +32,7 @@ export default async function NewMaterialPage() {
         </p>
       ) : null}
 
-      <section className="rounded-xl border border-border bg-card p-6">
+      <section className="border-border bg-card rounded-2xl border p-6">
         <UploadForm verified={user.emailVerified} />
       </section>
     </div>

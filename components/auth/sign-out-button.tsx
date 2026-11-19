@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { apiRequest, setCsrfToken } from '@/lib/http/client';
+import { Button } from '@/components/ui/button';
 
 export function SignOutButton() {
   const router = useRouter();
@@ -20,13 +21,8 @@ export function SignOutButton() {
   }
 
   return (
-    <button
-      type="button"
-      onClick={signOut}
-      disabled={pending}
-      className="rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
-    >
+    <Button variant="outline" size="sm" onClick={signOut} disabled={pending}>
       {pending ? 'Signing out…' : 'Sign out'}
-    </button>
+    </Button>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApiError, apiRequest, setCsrfToken } from '@/lib/http/client';
+import { Button } from '@/components/ui/button';
 
 export function DeleteAccountPanel() {
   const router = useRouter();
@@ -32,19 +33,19 @@ export function DeleteAccountPanel() {
 
   return (
     <form className="space-y-3" onSubmit={onDelete}>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-muted-foreground text-sm">
         Deleting your account ends access immediately and removes your materials, lessons, and
         revisions. This cannot be undone.
       </p>
       <div className="space-y-1">
-        <label htmlFor="delete-confirmation" className="text-sm font-medium text-foreground">
+        <label htmlFor="delete-confirmation" className="text-foreground text-sm font-medium">
           Type DELETE to confirm
         </label>
         <input
           id="delete-confirmation"
           value={confirmation}
           onChange={(event) => setConfirmation(event.target.value)}
-          className="w-full max-w-xs rounded-md border border-input px-3 py-2 text-sm"
+          className="border-input w-full max-w-xs rounded-lg border px-3 py-2 text-sm"
         />
       </div>
       {error ? (
@@ -52,13 +53,14 @@ export function DeleteAccountPanel() {
           {error}
         </p>
       ) : null}
-      <button
+      <Button
         type="submit"
+        variant="danger"
         disabled={pending}
-        className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+        className="border-red-600 text-red-700 dark:text-red-300"
       >
         {pending ? 'Deleting…' : 'Delete account'}
-      </button>
+      </Button>
     </form>
   );
 }

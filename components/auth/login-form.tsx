@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ApiError, apiRequest, setCsrfToken } from '@/lib/http/client';
+import { Button } from '@/components/ui/button';
 import { AuthCard, FormError } from './auth-card';
 
 interface LoginResponse {
@@ -53,10 +54,10 @@ export function LoginForm() {
       footer={
         <>
           <div className="flex flex-wrap justify-between gap-2">
-            <Link href="/register" className="font-medium text-brand-600 hover:underline">
+            <Link href="/register" className="text-brand-700 font-medium hover:underline">
               Create an account
             </Link>
-            <Link href="/forgot-password" className="font-medium text-brand-600 hover:underline">
+            <Link href="/forgot-password" className="text-brand-700 font-medium hover:underline">
               Forgot password?
             </Link>
           </div>
@@ -65,7 +66,7 @@ export function LoginForm() {
     >
       <form className="space-y-4" onSubmit={onSubmit} noValidate>
         <div className="space-y-1">
-          <label htmlFor="email" className="text-sm font-medium text-foreground">
+          <label htmlFor="email" className="text-foreground text-sm font-medium">
             Email
           </label>
           <input
@@ -76,11 +77,11 @@ export function LoginForm() {
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded-md border border-input px-3 py-2 text-sm"
+            className="border-input w-full rounded-md border px-3 py-2 text-sm"
           />
         </div>
         <div className="space-y-1">
-          <label htmlFor="password" className="text-sm font-medium text-foreground">
+          <label htmlFor="password" className="text-foreground text-sm font-medium">
             Password
           </label>
           <input
@@ -91,17 +92,13 @@ export function LoginForm() {
             required
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="w-full rounded-md border border-input px-3 py-2 text-sm"
+            className="border-input w-full rounded-md border px-3 py-2 text-sm"
           />
         </div>
         <FormError message={error} />
-        <button
-          type="submit"
-          disabled={pending}
-          className="w-full rounded-md bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
-        >
+        <Button type="submit" disabled={pending} className="w-full">
           {pending ? 'Signing in…' : 'Sign in'}
-        </button>
+        </Button>
       </form>
     </AuthCard>
   );

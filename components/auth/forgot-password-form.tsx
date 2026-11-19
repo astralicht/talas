@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ApiError, apiRequest } from '@/lib/http/client';
+import { Button } from '@/components/ui/button';
 import { AuthCard, FormError, FormNotice } from './auth-card';
 
 export function ForgotPasswordForm() {
@@ -33,14 +34,14 @@ export function ForgotPasswordForm() {
       title="Forgot your password?"
       description="We will email a single-use link that expires in 30 minutes."
       footer={
-        <Link href="/login" className="font-medium text-brand-600 hover:underline">
+        <Link href="/login" className="text-brand-700 font-medium hover:underline">
           Back to sign in
         </Link>
       }
     >
       <form className="space-y-4" onSubmit={onSubmit} noValidate>
         <div className="space-y-1">
-          <label htmlFor="email" className="text-sm font-medium text-foreground">
+          <label htmlFor="email" className="text-foreground text-sm font-medium">
             Email
           </label>
           <input
@@ -50,18 +51,14 @@ export function ForgotPasswordForm() {
             autoComplete="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded-md border border-input px-3 py-2 text-sm"
+            className="border-input w-full rounded-md border px-3 py-2 text-sm"
           />
         </div>
         <FormError message={error} />
         <FormNotice message={message} />
-        <button
-          type="submit"
-          disabled={pending}
-          className="w-full rounded-md bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
-        >
+        <Button type="submit" disabled={pending} className="w-full">
           {pending ? 'Sending…' : 'Send reset link'}
-        </button>
+        </Button>
       </form>
     </AuthCard>
   );

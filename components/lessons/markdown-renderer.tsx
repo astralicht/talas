@@ -21,7 +21,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
             <a
               href={href}
               rel="noopener noreferrer nofollow"
-              className="text-brand-600 underline"
+              className="text-brand-700 dark:text-brand-300 underline"
             >
               {children}
             </a>
@@ -33,7 +33,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
               alt={alt ?? 'Figure'}
               // FR-008: responsive figures; the sources are tenant-scoped
               // cookie-authenticated routes (Cache-Control private).
-              className="mx-auto max-w-full h-auto rounded-md border border-border dark:border-slate-700"
+              className="border-border mx-auto h-auto max-w-full rounded-lg border dark:border-slate-700"
               loading="lazy"
             />
           ),

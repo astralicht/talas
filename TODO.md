@@ -261,12 +261,12 @@ tiers change via script/DB.
 
 Quotas (single source of truth: `lib/plans.ts`, `PLANS` keyed by plan id):
 
-| Limit                          | free  | plus | Notes |
-|--------------------------------|-------|------|-------|
-| Materials stored               | 5     | 25   | counts non-deleted (incl. awaiting_upload / failed / quarantined) |
-| Chars per material (extracted) | 10000 | 10000 | same storage conditions as free, per the plan decision |
-| Lessons stored                 | 1     | 5    | non-deleted |
-| Lesson generations per day     | 1     | 5    | = tier lesson quota; UTC daily reset; failed attempts refunded |
+| Limit                          | free  | plus  | Notes                                                             |
+| ------------------------------ | ----- | ----- | ----------------------------------------------------------------- |
+| Materials stored               | 5     | 25    | counts non-deleted (incl. awaiting_upload / failed / quarantined) |
+| Chars per material (extracted) | 10000 | 10000 | same storage conditions as free, per the plan decision            |
+| Lessons stored                 | 1     | 5     | non-deleted                                                       |
+| Lesson generations per day     | 1     | 5     | = tier lesson quota; UTC daily reset; failed attempts refunded    |
 
 - [x] `lib/plans.ts` — `PLANS` record + `PLAN_IDS` enum (`'free'`, `'plus'`);
       `dailyLessonGenerations` defaults to the tier's `lessons` quota (unit
@@ -276,32 +276,28 @@ Quotas (single source of truth: `lib/plans.ts`, `PLANS` keyed by plan id):
       `plan_generation_limit`) declared here.
 - [x] User model: `plan` enum field, default `'free'` (existing users read as
       free — no migration). `scripts/set-plan.ts` + `pnpm db:set-plan <email>
-      <plan>` for manual tier changes; seed makes bob `plus`, alice stays
+    <plan>` for manual tier changes; seed makes bob `plus`, alice stays
       `free` (two-tier e2e coverage).
 - [x] Usage service: per-user counts of non-deleted materials and lessons.
-- [x] Enforcement:
-      - presign (the record-creating step) → material quota exceeded → 403
-        quota envelope; second check at upload confirm (double-submit race
-        guard)
-      - parse processor → `charCount` > plan cap → status `failed`,
-        `failureCode: plan_char_limit`, user-visible reason + split
-        guidance; fails BEFORE chunking/embedding (no wasted cost)
-      - split flow (user decision): an over-limit upload asks the user to
-        split it into multiple files, each counting against the quota; if
-        split re-uploads hit the quota wall, INFORM FIRST (403 states the
-        shortfall), then auto-purge the over-limit originals (existing
-        delete-service: S3 + chunks + assets + record; audit event
-        `plan_limit_purge`); the retry then fits
-      - `POST /api/lessons/generate` → lesson storage 403 first, then daily
-        allowance 403. Regeneration is EXEMPT from the allowance (user
-        decision); the 10/hour limiter and `AI_DAILY_BUDGET_USD` stay as-is.
+- [x] Enforcement: - presign (the record-creating step) → material quota exceeded → 403
+      quota envelope; second check at upload confirm (double-submit race
+      guard) - parse processor → `charCount` > plan cap → status `failed`,
+      `failureCode: plan_char_limit`, user-visible reason + split
+      guidance; fails BEFORE chunking/embedding (no wasted cost) - split flow (user decision): an over-limit upload asks the user to
+      split it into multiple files, each counting against the quota; if
+      split re-uploads hit the quota wall, INFORM FIRST (403 states the
+      shortfall), then auto-purge the over-limit originals (existing
+      delete-service: S3 + chunks + assets + record; audit event
+      `plan_limit_purge`); the retry then fits - `POST /api/lessons/generate` → lesson storage 403 first, then daily
+      allowance 403. Regeneration is EXEMPT from the allowance (user
+      decision); the 10/hour limiter and `AI_DAILY_BUDGET_USD` stay as-is.
 - [x] Daily allowance counter: Redis key `plan:gen:{userId}:{UTC-date}`,
       TTL to next UTC midnight; atomic reserve (Lua INCR with cap check) at
       request admission, refund on terminal failure; the 403 response
       carries `resetsAt` so the UI can show "resets in 7h".
 - [x] `GET /api/me/usage` → `{ plan, materials: {used, limit},
-      lessons: {used, limit}, maxMaterialChars, generations: {used, limit,
-      resetsAt} }` — deliberately a SEPARATE endpoint: the list APIs MUST
+    lessons: {used, limit}, maxMaterialChars, generations: {used, limit,
+    resetsAt} }` — deliberately a SEPARATE endpoint: the list APIs MUST
       NOT change their response envelope shapes (constitution v2.1.0). UI:
       usage badges ("3/5 materials", "2/5 generations today · resets in
       7h") on materials + lessons pages, quota-error dialog copy, and a
@@ -350,6 +346,25 @@ Notes:
 - Future enhancements (not this step): server-side guided document
   splitting (PDF/DOCX auto-split is its own project); billing-driven tier
   upgrades; per-tier AI USD budgets.
+
+## Step 10 — Mobile nav UX polish (brand restyle follow-up, NOT STARTED)
+
+Follow-ups from the Nov 2026 brand restyle of the session nav
+(components/auth/session-nav.tsx + session-nav-links.tsx):
+
+- [ ] Hamburger menu on mobile: below the breakpoint the nav links collapse
+      into a hamburger toggle (the restyled rounded card currently wraps the
+      links inline); keep the orange active-page pill highlight inside the
+      opened menu
+- [ ] Don't squish the logo: reserve its natural size on narrow screens
+      (it currently shrinks when the nav row wraps)
+- [ ] Sign out stays at the end: it is the last action in the nav on all
+      viewport sizes (mobile menu bottom, desktop row end)
+- [ ] The light/dark theme toggle is NOT inside the hamburger menu — keep it
+      as a standalone icon button outside the collapsible section
+
+Gates: typecheck, lint, unit tests, visual check of the nav at mobile and
+desktop widths in both themes.
 
 ## Dev environment notes (Windows + PowerShell, Linux + bash)
 
@@ -400,7 +415,7 @@ env [-Write] | seed | worker [-Db <name>]`. Binaries auto-download (MongoDB
   S3_FAKE in-process store loses data across processes); login/AI/email work
   via fake modes in .env.local.
 - Exposing the dev server (ngrok): install ngrok (Windows: `winget install
-  ngrok.ngrok` — needs >= 3.29 for current accounts; `ngrok update` if winget
+ngrok.ngrok` — needs >= 3.29 for current accounts; `ngrok update` if winget
   shipped an old one. Linux: snap, brew, or the official deb repo). Both dev
   stacks expose a `tunnel` subcommand — `scripts/dev-stack.ps1 tunnel` /
   `scripts/dev-stack.sh tunnel` — with the same NGROK_DOMAIN semantics:

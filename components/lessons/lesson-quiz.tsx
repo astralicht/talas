@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 
 export interface LessonQuizQuestion {
   question: string;
@@ -21,9 +22,7 @@ export function LessonQuiz({ questions }: { questions: LessonQuizQuestion[] }) {
   const answeredCount = Object.keys(answers).length;
   const correctCount = questions.reduce(
     (count, question, index) =>
-      answers[index] !== undefined && answers[index] === question.correctIndex
-        ? count + 1
-        : count,
+      answers[index] !== undefined && answers[index] === question.correctIndex ? count + 1 : count,
     0,
   );
   const allAnswered = answeredCount === questions.length;
@@ -42,11 +41,11 @@ export function LessonQuiz({ questions }: { questions: LessonQuizQuestion[] }) {
     <section
       aria-label="Lesson quiz"
       data-testid="lesson-quiz"
-      className="rounded-xl border border-border bg-card p-6"
+      className="border-border bg-card rounded-2xl border p-6"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-base font-semibold text-foreground">Test your understanding</h2>
-        <span className="text-xs text-muted-foreground">
+        <h2 className="text-foreground text-base font-bold">Test your understanding</h2>
+        <span className="text-muted-foreground text-xs">
           {allAnswered
             ? `Score: ${correctCount} of ${questions.length} correct`
             : answeredCount > 0
@@ -62,7 +61,7 @@ export function LessonQuiz({ questions }: { questions: LessonQuizQuestion[] }) {
           const wasCorrect = chosen === question.correctIndex;
           return (
             <li key={question.question} data-testid="quiz-question">
-              <p className="text-sm font-medium text-foreground">
+              <p className="text-foreground text-sm font-medium">
                 {questionIndex + 1}. {question.question}
               </p>
               <ul className="mt-2 space-y-1.5">
@@ -70,16 +69,16 @@ export function LessonQuiz({ questions }: { questions: LessonQuizQuestion[] }) {
                   const isCorrect = optionIndex === question.correctIndex;
                   const isChosen = chosen === optionIndex;
                   let optionClasses =
-                    'w-full rounded-md border border-input px-3 py-2 text-left text-sm text-foreground hover:bg-muted';
+                    'w-full rounded-lg border border-input px-3 py-2 text-left text-sm text-foreground hover:bg-muted';
                   if (answered && isCorrect) {
                     optionClasses =
-                      'w-full rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-left text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300';
+                      'w-full rounded-lg border border-accent-200 bg-accent-50 px-3 py-2 text-left text-sm text-accent-600 dark:border-accent-200/30 dark:bg-accent-200/10 dark:text-accent-200';
                   } else if (answered && isChosen) {
                     optionClasses =
-                      'w-full rounded-md border border-red-300 bg-red-50 px-3 py-2 text-left text-sm text-red-900 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300';
+                      'w-full rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-left text-sm text-red-900 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300';
                   } else if (answered) {
                     optionClasses =
-                      'w-full rounded-md border border-border px-3 py-2 text-left text-sm text-muted-foreground';
+                      'w-full rounded-lg border border-border px-3 py-2 text-left text-sm text-muted-foreground';
                   }
                   return (
                     <li key={option}>
@@ -102,10 +101,14 @@ export function LessonQuiz({ questions }: { questions: LessonQuizQuestion[] }) {
                   role="status"
                   data-testid="quiz-result"
                   className={`mt-2 text-sm ${
-                    wasCorrect ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'
+                    wasCorrect
+                      ? 'text-emerald-700 dark:text-emerald-300'
+                      : 'text-red-700 dark:text-red-300'
                   }`}
                 >
-                  {wasCorrect ? 'Correct!' : `Not quite — the answer is ${LETTERS[question.correctIndex]}.`}
+                  {wasCorrect
+                    ? 'Correct!'
+                    : `Not quite — the answer is ${LETTERS[question.correctIndex]}.`}
                   {question.explanation ? ` ${question.explanation}` : ''}
                 </p>
               ) : null}
@@ -115,14 +118,9 @@ export function LessonQuiz({ questions }: { questions: LessonQuizQuestion[] }) {
       </ol>
 
       {answeredCount > 0 ? (
-        <button
-          type="button"
-          onClick={reset}
-          data-testid="quiz-reset"
-          className="mt-4 rounded-md border border-input px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
+        <Button variant="ghost" size="sm" onClick={reset} data-testid="quiz-reset">
           Reset quiz
-        </button>
+        </Button>
       ) : null}
     </section>
   );

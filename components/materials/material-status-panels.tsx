@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiRequest } from '@/lib/http/client';
+import { Button } from '@/components/ui/button';
 import { useMaterialStatus, type MaterialStatusResponse } from '@/hooks/use-material-status';
 import { DeleteMaterialDialog } from './delete-material-dialog';
 import { StatusBadge } from './status-badge';
@@ -35,7 +36,11 @@ export function MaterialStatusPanels({ materialId, initial }: StatusPanelsProps)
 
   // One refresh sweep so server components see the final state right away.
   useEffect(() => {
-    if (material.status === 'ready' || material.status === 'failed' || material.status === 'quarantined') {
+    if (
+      material.status === 'ready' ||
+      material.status === 'failed' ||
+      material.status === 'quarantined'
+    ) {
       router.refresh();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -46,23 +51,25 @@ export function MaterialStatusPanels({ materialId, initial }: StatusPanelsProps)
       <div className="flex items-center gap-3">
         <StatusBadge status={material.status} />
         {ACTIVE_STATUS_LABELS.has(material.status) ? (
-          <span className="text-sm text-muted-foreground">
+          <span className="text-muted-foreground text-sm">
             {STAGE_LABELS[material.status] ?? 'Working…'}
           </span>
         ) : null}
       </div>
 
       {material.failureMessage ? (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:text-red-300 dark:bg-red-950/40">
+        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-300">
           {material.failureMessage}
-          {material.failureCode && RETRYABLE_CODES.has(material.failureCode) ? ' This failure can be retried.' : ''}
+          {material.failureCode && RETRYABLE_CODES.has(material.failureCode)
+            ? ' This failure can be retried.'
+            : ''}
         </p>
       ) : null}
 
       {material.status === 'failed' && material.failureCode === CHAR_LIMIT_CODE ? (
         <div
           data-testid="split-guidance"
-          className="border-amber-300 bg-amber-50 rounded-md border px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+          className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
         >
           <p className="font-medium">Your upload is too large for your plan.</p>
           <p className="mt-1">
@@ -72,7 +79,9 @@ export function MaterialStatusPanels({ materialId, initial }: StatusPanelsProps)
         </div>
       ) : null}
 
-      {material.status === 'failed' && material.failureCode && RETRYABLE_CODES.has(material.failureCode) ? (
+      {material.status === 'failed' &&
+      material.failureCode &&
+      RETRYABLE_CODES.has(material.failureCode) ? (
         <RetryButton materialId={materialId} />
       ) : null}
 
@@ -101,14 +110,9 @@ function RetryButton({ materialId }: { materialId: string }) {
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={onRetry}
-        disabled={pending}
-        className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
-      >
+      <Button onClick={onRetry} disabled={pending}>
         {pending ? 'Retrying…' : 'Retry processing'}
-      </button>
+      </Button>
       {error ? (
         <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-300">
           {error}
@@ -118,7 +122,13 @@ function RetryButton({ materialId }: { materialId: string }) {
   );
 }
 
-const ACTIVE_STATUS_LABELS = new Set(['awaiting_upload', 'uploaded', 'scanning', 'queued', 'processing']);
+const ACTIVE_STATUS_LABELS = new Set([
+  'awaiting_upload',
+  'uploaded',
+  'scanning',
+  'queued',
+  'processing',
+]);
 
 const STAGE_LABELS: Record<string, string> = {
   awaiting_upload: 'Waiting for the file upload',

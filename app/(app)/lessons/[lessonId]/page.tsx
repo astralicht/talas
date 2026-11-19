@@ -8,6 +8,7 @@ import { MarkdownRenderer } from '@/components/lessons/markdown-renderer';
 import { DeleteLessonDialog } from '@/components/lessons/delete-lesson-dialog';
 import { RegenerateLessonDialog } from '@/components/lessons/regenerate-lesson-dialog';
 import { LessonQuiz, type LessonQuizQuestion } from '@/components/lessons/lesson-quiz';
+import { buttonVariants } from '@/components/ui/button';
 
 export const metadata: Metadata = { title: 'Lesson' };
 export const dynamic = 'force-dynamic';
@@ -56,7 +57,9 @@ export default async function LessonViewPage({
         </Link>
         <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-2xl font-semibold break-words text-foreground">{lesson.title}</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight break-words text-foreground">
+              {lesson.title}
+            </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Version {lesson.version}
               {lesson.updatedAt
@@ -71,7 +74,7 @@ export default async function LessonViewPage({
             {materialDownload ? (
               <a
                 href={`/api/materials/${primaryMaterial!._id.toHexString()}/download`}
-                className="rounded-md border border-input bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-background"
+                className="border-input bg-card hover:bg-muted text-foreground rounded-full border px-4 py-2 text-sm font-semibold"
                 data-testid="download-material"
               >
                 Download original material
@@ -79,7 +82,7 @@ export default async function LessonViewPage({
             ) : null}
             <Link
               href={`/lessons/${lessonId}/edit`}
-              className="bg-brand-600 hover:bg-brand-700 rounded-md px-3 py-1.5 text-sm font-medium text-white"
+              className={buttonVariants({ variant: 'primary', size: 'sm' })}
               data-testid="edit-lesson"
             >
               Edit lesson
@@ -108,7 +111,7 @@ export default async function LessonViewPage({
                 {index > 0 ? ', ' : ''}
                 <Link
                   href={`/materials/${entry._id.toHexString()}`}
-                  className="text-brand-600 font-medium hover:underline"
+                  className="text-brand-700 font-medium hover:underline"
                 >
                   {entry.originalFilename}
                 </Link>
@@ -117,7 +120,7 @@ export default async function LessonViewPage({
         </p>
       ) : null}
 
-      <article className="rounded-xl border border-border bg-card p-6 sm:p-8">
+      <article className="border-border bg-card rounded-2xl border p-6 sm:p-8">
         <MarkdownRenderer content={lesson.contentMarkdown} />
       </article>
 

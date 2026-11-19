@@ -46,7 +46,7 @@ export default async function LessonEditorPage({
           >
             ← Back to lesson
           </Link>
-          <h1 className="mt-2 text-2xl font-semibold text-foreground">Edit lesson</h1>
+          <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">Edit lesson</h1>
         </div>
         <DeleteLessonDialog lessonId={lessonId} />
       </div>

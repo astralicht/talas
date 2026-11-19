@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApiError, apiRequest } from '@/lib/http/client';
+import { Button } from '@/components/ui/button';
 
 export function DeleteLessonDialog({ lessonId }: { lessonId: string }) {
   const router = useRouter();
@@ -25,26 +26,22 @@ export function DeleteLessonDialog({ lessonId }: { lessonId: string }) {
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 dark:bg-red-950/40 dark:border-red-800 dark:text-red-300"
-      >
+      <Button variant="danger" size="sm" onClick={() => setOpen(true)}>
         Delete lesson
-      </button>
+      </Button>
 
       {open ? (
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="delete-lesson-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+          className="bg-foreground/40 fixed inset-0 z-50 flex items-center justify-center p-4"
         >
-          <div className="w-full max-w-sm rounded-lg bg-card p-6 shadow-lg">
-            <h2 id="delete-lesson-title" className="text-base font-semibold text-foreground">
+          <div className="bg-card w-full max-w-sm rounded-2xl p-6 shadow-lg">
+            <h2 id="delete-lesson-title" className="text-foreground text-base font-bold">
               Delete this lesson?
             </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="text-muted-foreground mt-2 text-sm">
               The lesson and its revision history are removed, and the source material with its
               stored file is deleted too. This cannot be undone.
             </p>
@@ -54,21 +51,17 @@ export function DeleteLessonDialog({ lessonId }: { lessonId: string }) {
               </p>
             ) : null}
             <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground"
-              >
+              <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
                 Cancel
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                size="sm"
                 onClick={onConfirm}
                 disabled={pending}
-                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                className="bg-red-600 text-white hover:bg-red-700"
               >
                 {pending ? 'Deleting…' : 'Delete'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

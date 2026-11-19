@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApiError, apiRequest } from '@/lib/http/client';
+import { Button } from '@/components/ui/button';
 
 export interface RegenerateMaterial {
   id: string;
@@ -68,7 +69,9 @@ export function RegenerateLessonDialog({
         throw new Error(view.lastErrorMessage ?? 'The regeneration failed. Try again.');
       }
       if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
-        throw new Error('The regeneration is taking unusually long. Check back on the lesson later.');
+        throw new Error(
+          'The regeneration is taking unusually long. Check back on the lesson later.',
+        );
       }
       setProgress(view.status === 'processing' ? 'Regenerating the lesson…' : 'Queued…');
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
@@ -82,10 +85,10 @@ export function RegenerateLessonDialog({
     try {
       const body: { version: number; materialIds?: string[] } = { version };
       if (selected.size > 0) body.materialIds = [...selected];
-      const created = await apiRequest<GenerateResponse>(
-        `/api/lessons/${lessonId}/regenerate`,
-        { method: 'POST', body },
-      );
+      const created = await apiRequest<GenerateResponse>(`/api/lessons/${lessonId}/regenerate`, {
+        method: 'POST',
+        body,
+      });
       const finished = await pollRequest(created.requestId);
       if (finished.lessonId) {
         setBanner('Lesson regenerated — opening the new version…');
@@ -109,21 +112,21 @@ export function RegenerateLessonDialog({
 
   return (
     <div className="space-y-3">
-      <button
-        type="button"
+      <Button
+        variant="outline"
+        size="sm"
         onClick={() => setOpen(true)}
         disabled={pending}
         data-testid="regenerate-lesson"
-        className="rounded-md border border-input bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-background disabled:opacity-60"
       >
         Regenerate lesson
-      </button>
+      </Button>
 
       {banner ? (
         <p
           role="status"
           data-testid="regenerate-banner"
-          className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:text-emerald-300 dark:bg-emerald-950/40"
+          className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
         >
           Version {version + 1} generated.
         </p>
@@ -134,20 +137,20 @@ export function RegenerateLessonDialog({
           role="dialog"
           aria-modal="true"
           aria-labelledby="regenerate-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+          className="bg-foreground/40 fixed inset-0 z-50 flex items-center justify-center p-4"
         >
-          <div className="w-full max-w-md rounded-lg bg-card p-6 shadow-lg">
-            <h2 id="regenerate-title" className="text-base font-semibold text-foreground">
+          <div className="bg-card w-full max-w-md rounded-2xl p-6 shadow-lg">
+            <h2 id="regenerate-title" className="text-foreground text-base font-bold">
               Regenerate this lesson?
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Pick the documents it should be built from. The current version is kept in
-              history as a revision.
+            <p className="text-muted-foreground mt-1 text-sm">
+              Pick the documents it should be built from. The current version is kept in history as
+              a revision.
             </p>
 
             <fieldset className="mt-4 space-y-2">
-              <legend className="text-sm font-medium text-foreground">Source materials</legend>
-              <ul className="max-h-60 divide-y divide-border overflow-y-auto rounded-md border border-border">
+              <legend className="text-foreground text-sm font-medium">Source materials</legend>
+              <ul className="divide-border border-border max-h-60 divide-y overflow-y-auto rounded-lg border">
                 {readyMaterials.map((material) => (
                   <li key={material.id} className="flex items-center gap-3 px-3 py-2">
                     <input
@@ -160,7 +163,7 @@ export function RegenerateLessonDialog({
                     />
                     <label
                       htmlFor={`regen-${material.id}`}
-                      className="min-w-0 flex-1 truncate text-sm text-foreground"
+                      className="text-foreground min-w-0 flex-1 truncate text-sm"
                     >
                       {material.originalFilename}
                     </label>
@@ -169,33 +172,31 @@ export function RegenerateLessonDialog({
               </ul>
             </fieldset>
 
-            {progress ? <p className="mt-3 text-sm text-muted-foreground">{progress}</p> : null}
+            {progress ? <p className="text-muted-foreground mt-3 text-sm">{progress}</p> : null}
             {error ? (
-              <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:text-red-300 dark:bg-red-950/40">
+              <p
+                role="alert"
+                className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-300"
+              >
                 {error}
               </p>
             ) : null}
 
             <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   setOpen(false);
                   setError(null);
                 }}
                 disabled={pending}
-                className="rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground"
               >
                 Cancel
-              </button>
-              <button
-                type="button"
-                onClick={onRegenerate}
-                disabled={pending || selected.size < 1}
-                className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
-              >
+              </Button>
+              <Button onClick={onRegenerate} disabled={pending || selected.size < 1}>
                 {pending ? 'Regenerating…' : 'Regenerate'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

@@ -6,11 +6,20 @@
 
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --color-brand-50: #eef4ff;
-  --color-brand-100: #d9e6ff;
-  --color-brand-500: #3b6ef6;
-  --color-brand-600: #2f5ad0;
-  --color-brand-700: #2647a5;
+  /* Brand orange scale derived from the Talas logo sparkle (#F5A623). */
+  --color-brand-50: #fff6e6;
+  --color-brand-100: #ffe9c2;
+  --color-brand-200: #fbd699;
+  --color-brand-300: #f8c46e;
+  --color-brand-500: #f5a623;
+  --color-brand-600: #dd8a0a;
+  --color-brand-700: #b45309;
+  --color-brand-950: #432004;
+  /* Secondary mint accent scale (soft green fills from the reference design). */
+  --color-accent-50: #f2f8ec;
+  --color-accent-100: #e3f1d7;
+  --color-accent-200: #cde5b9;
+  --color-accent-600: #4d7c43;
 }
 
 /*
@@ -30,24 +39,24 @@
 
 :root {
   color-scheme: light dark;
-  --background: #f8fafc; /* slate-50 */
-  --foreground: #0f172a; /* slate-900 */
+  --background: #faf7f2; /* warm cream */
+  --foreground: #1c1917; /* warm near-black (stone-900) */
   --card: #ffffff;
-  --muted: #f1f5f9; /* slate-100 */
-  --muted-foreground: #64748b; /* slate-500 */
-  --border: #e2e8f0; /* slate-200 */
-  --input: #cbd5e1; /* slate-300 */
+  --muted: #f3eee6; /* warm light fill */
+  --muted-foreground: #78716c; /* stone-500 */
+  --border: #e7e0d3;
+  --input: #d6cfc2;
 }
 
 .dark {
   color-scheme: dark;
-  --background: #020617; /* slate-950 */
-  --foreground: #f1f5f9; /* slate-100 */
-  --card: #0f172a; /* slate-900 */
-  --muted: #1e293b; /* slate-800 */
-  --muted-foreground: #94a3b8; /* slate-400 */
-  --border: #1e293b; /* slate-800 */
-  --input: #334155; /* slate-700 */
+  --background: #17130f; /* warm charcoal */
+  --foreground: #ede8e0;
+  --card: #201b16;
+  --muted: #2a241d;
+  --muted-foreground: #a8a29e; /* stone-400 */
+  --border: #2e2820;
+  --input: #3a332a;
 }
 
 html,

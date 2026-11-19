@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ApiError, apiRequest } from '@/lib/http/client';
+import { Button } from '@/components/ui/button';
 import { AuthCard, FormError, FormNotice } from './auth-card';
 import { InlineSpinner } from '@/components/ui/spinner';
 
@@ -57,23 +58,23 @@ export function VerifyEmailClient() {
       title="Verify your email"
       description="Verification unlocks uploads and lesson generation."
       footer={
-        <Link href="/login" className="font-medium text-brand-600 hover:underline">
+        <Link href="/login" className="text-brand-700 font-medium hover:underline">
           Continue to sign in
         </Link>
       }
     >
       <div className="space-y-4">
-        {state === 'verifying' ? <p className="text-sm text-muted-foreground">Verifying…</p> : null}
+        {state === 'verifying' ? <p className="text-muted-foreground text-sm">Verifying…</p> : null}
         <FormNotice message={state === 'verified' ? message : null} />
         <FormError message={state === 'failed' ? message : null} />
         {!token && state !== 'verified' ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Open the link from your verification email, or request a new one below.
           </p>
         ) : null}
         <form className="space-y-3" onSubmit={resend}>
           <div className="space-y-1">
-            <label htmlFor="resend-email" className="text-sm font-medium text-foreground">
+            <label htmlFor="resend-email" className="text-foreground text-sm font-medium">
               Email
             </label>
             <input
@@ -83,17 +84,12 @@ export function VerifyEmailClient() {
               autoComplete="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-md border border-input px-3 py-2 text-sm"
+              className="border-input w-full rounded-lg border px-3 py-2 text-sm"
             />
           </div>
-          <button
-            type="submit"
-            disabled={resending}
-            aria-busy={resending}
-            className="inline-flex items-center gap-2 rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
-          >
+          <Button variant="outline" type="submit" disabled={resending} aria-busy={resending}>
             {resending ? <InlineSpinner label="Resending…" /> : 'Resend verification email'}
-          </button>
+          </Button>
         </form>
         <FormNotice message={resendNotice} />
       </div>

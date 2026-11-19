@@ -13,25 +13,25 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-8">
       <section className="space-y-1">
-        <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
-        <p className="text-sm text-muted-foreground">Signed in as {user.email}.</p>
+        <h1 className="text-foreground text-3xl font-extrabold tracking-tight">Settings</h1>
+        <p className="text-muted-foreground text-sm">Signed in as {user.email}.</p>
       </section>
 
-      <section className="space-y-3 rounded-xl border border-border bg-card p-6">
-        <h2 className="text-base font-semibold text-foreground">Export your data</h2>
-        <p className="text-sm text-muted-foreground">
+      <section className="border-border bg-card space-y-3 rounded-2xl border p-6">
+        <h2 className="text-base font-bold text-foreground">Export your data</h2>
+        <p className="text-muted-foreground text-sm">
           Download a ZIP of your material metadata and Markdown lessons.
         </p>
         <a
           href="/api/account/export"
-          className="inline-block rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+          className="border-input bg-card hover:bg-muted text-foreground inline-block rounded-full border px-4 py-2 text-sm font-semibold"
         >
           Download export
         </a>
       </section>
 
-      <section className="space-y-3 rounded-xl border border-red-200 bg-card p-6">
-        <h2 className="text-base font-semibold text-red-700">Delete account</h2>
+      <section className="space-y-3 rounded-2xl border border-red-200 bg-card p-6 dark:border-red-800">
+        <h2 className="text-base font-bold text-red-700 dark:text-red-300">Delete account</h2>
         <DeleteAccountPanel />
       </section>
     </div>

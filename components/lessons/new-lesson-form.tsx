@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApiError, apiRequest } from '@/lib/http/client';
+import { Button } from '@/components/ui/button';
 
 export interface NewLessonMaterial {
   id: string;
@@ -81,12 +82,16 @@ export function NewLessonForm({
             }
             if (view.status === 'failed') {
               stopPolling();
-              reject(new Error(view.lastErrorMessage ?? 'The lesson generation failed. Try again.'));
+              reject(
+                new Error(view.lastErrorMessage ?? 'The lesson generation failed. Try again.'),
+              );
               return;
             }
             if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
               stopPolling();
-              reject(new Error('The lesson is taking unusually long. Check back on the lessons page.'));
+              reject(
+                new Error('The lesson is taking unusually long. Check back on the lessons page.'),
+              );
               return;
             }
             setProgress(view.status === 'processing' ? 'Generating the lesson…' : 'Queued…');
@@ -126,7 +131,9 @@ export function NewLessonForm({
         router.refresh();
       }
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'The lesson generation failed. Try again.');
+      setError(
+        cause instanceof ApiError ? cause.message : 'The lesson generation failed. Try again.',
+      );
       setProgress(null);
       setPending(false);
     }
@@ -135,7 +142,7 @@ export function NewLessonForm({
   return (
     <form className="space-y-5" onSubmit={onSubmit} noValidate>
       <div className="space-y-1">
-        <label htmlFor="lesson-title" className="text-sm font-medium text-foreground">
+        <label htmlFor="lesson-title" className="text-foreground text-sm font-medium">
           Lesson title
         </label>
         <input
@@ -148,13 +155,13 @@ export function NewLessonForm({
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           placeholder="e.g. Photosynthesis foundations"
-          className="w-full rounded-md border border-input px-3 py-2 text-sm"
+          className="border-input w-full rounded-lg border px-3 py-2 text-sm"
           disabled={pending}
         />
       </div>
 
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-foreground">
+        <legend className="text-foreground text-sm font-medium">
           Source materials (choose 1–5)
         </legend>
         {materials.length === 0 ? (
@@ -162,7 +169,7 @@ export function NewLessonForm({
             No processed materials yet — a material is usable once its status is Ready.
           </p>
         ) : (
-          <ul className="divide-y divide-border rounded-md border border-border">
+          <ul className="divide-border border-border divide-y rounded-lg border">
             {materials.map((material) => (
               <li key={material.id} className="flex items-center gap-3 px-3 py-2">
                 <input
@@ -175,7 +182,7 @@ export function NewLessonForm({
                 />
                 <label
                   htmlFor={`material-${material.id}`}
-                  className="min-w-0 flex-1 truncate text-sm text-foreground"
+                  className="text-foreground min-w-0 flex-1 truncate text-sm"
                 >
                   {material.originalFilename}
                 </label>
@@ -185,20 +192,23 @@ export function NewLessonForm({
         )}
       </fieldset>
 
-      {progress ? <p className="text-sm text-muted-foreground">{progress}</p> : null}
+      {progress ? <p className="text-muted-foreground text-sm">{progress}</p> : null}
       {error ? (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:text-red-300 dark:bg-red-950/40">
+        <p
+          role="alert"
+          className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-300"
+        >
           {error}
         </p>
       ) : null}
 
-      <button
+      <Button
         type="submit"
         disabled={pending || selected.size < 1 || title.trim().length === 0}
-        className="w-full rounded-md bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+        className="w-full"
       >
         {pending ? 'Generating…' : 'Generate lesson'}
-      </button>
+      </Button>
     </form>
   );
 }

@@ -6,6 +6,7 @@ import { LessonRepository } from '@/lib/db/repositories/lesson-repository';
 import { planLimitsFor } from '@/lib/plans';
 import { usageSnapshot } from '@/lib/plans/usage';
 import { ListToolbar } from '@/components/ui/list-toolbar';
+import { buttonVariants } from '@/components/ui/button';
 import { serializeLessonSummary } from '@/lib/http/serializers';
 import {
   buildListHref,
@@ -80,13 +81,13 @@ export default async function LessonsPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-foreground text-2xl font-semibold">Lessons</h1>
+          <h1 className="text-foreground text-3xl font-extrabold tracking-tight">Lessons</h1>
           <p className="text-muted-foreground text-sm">Generated and edited study lessons.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <span
             data-testid="lessons-generation-quota"
-            className="border-border bg-card text-muted-foreground rounded-md border px-2.5 py-1 text-xs font-medium"
+            className="border-border bg-card text-muted-foreground rounded-full border px-3 py-1.5 text-xs font-medium"
           >
             {usage.generations.used}/{usage.generations.limit} generations today
             {usage.generations.resetsAt
@@ -95,22 +96,19 @@ export default async function LessonsPage({
           </span>
           <span
             data-testid="lessons-quota"
-            className={`border-border bg-card text-muted-foreground rounded-md border px-2.5 py-1 text-xs font-medium ${
+            className={`border-border bg-card text-muted-foreground rounded-full border px-3 py-1.5 text-xs font-medium ${
               usage.lessons.used >= limits.lessons ? 'text-amber-700 dark:text-amber-300' : ''
             }`}
           >
             {usage.lessons.used}/{limits.lessons} lessons · {usage.plan} plan
           </span>
-          <Link
-            href="/lessons/new"
-            className="bg-brand-600 hover:bg-brand-700 rounded-md px-4 py-2 text-sm font-medium text-white"
-          >
+          <Link href="/lessons/new" className={buttonVariants({ variant: 'primary', size: 'sm' })}>
             New lesson
           </Link>
         </div>
       </div>
 
-      <section className="border-border bg-card space-y-4 rounded-xl border p-6">
+      <section className="border-border bg-card space-y-4 rounded-2xl border p-6">
         <ListToolbar
           action="/lessons"
           search={{
@@ -146,7 +144,7 @@ export default async function LessonsPage({
               <Link
                 href="/lessons"
                 data-testid="lessons-clear-empty"
-                className="text-brand-600 font-medium hover:underline"
+                className="text-brand-700 font-medium hover:underline"
               >
                 Clear filters
               </Link>
@@ -154,7 +152,7 @@ export default async function LessonsPage({
           ) : (
             <p className="text-muted-foreground text-sm">
               No lessons yet — create one from your processed materials.{' '}
-              <Link href="/lessons/new" className="text-brand-600 font-medium hover:underline">
+              <Link href="/lessons/new" className="text-brand-700 font-medium hover:underline">
                 New lesson
               </Link>
               .
@@ -171,7 +169,7 @@ export default async function LessonsPage({
                       <Link
                         href={`/lessons/${lesson.id}`}
                         data-testid="lesson-link"
-                        className="text-foreground hover:text-brand-600 block truncate font-medium"
+                        className="text-foreground hover:text-brand-700 block truncate font-medium"
                       >
                         {lesson.title}
                       </Link>
@@ -193,7 +191,7 @@ export default async function LessonsPage({
                   {page > 1 ? (
                     <Link
                       href={href(page - 1)}
-                      className="text-brand-600 font-medium hover:underline"
+                      className="text-brand-700 font-medium hover:underline"
                     >
                       Previous
                     </Link>
@@ -206,7 +204,7 @@ export default async function LessonsPage({
                   {page < pages ? (
                     <Link
                       href={href(page + 1)}
-                      className="text-brand-600 font-medium hover:underline"
+                      className="text-brand-700 font-medium hover:underline"
                     >
                       Next
                     </Link>

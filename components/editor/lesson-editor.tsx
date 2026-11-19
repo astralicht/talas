@@ -3,14 +3,11 @@
 import { useCallback, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApiError, apiRequest } from '@/lib/http/client';
+import { Button } from '@/components/ui/button';
 import { useAutosave } from '@/hooks/use-autosave';
 import { MarkdownRenderer } from '@/components/lessons/markdown-renderer';
 import { ConflictBanner } from './conflict-banner';
-import {
-  RevisionHistory,
-  fetchRevisions,
-  type RevisionSummary,
-} from './revision-history';
+import { RevisionHistory, fetchRevisions, type RevisionSummary } from './revision-history';
 
 export interface LessonEditorProps {
   lessonId: string;
@@ -80,7 +77,10 @@ export function LessonEditor({
   });
 
   const publishDraft = useCallback(() => {
-    autosave.onEdit({ title: draftRef.current.title, contentMarkdown: draftRef.current.contentMarkdown });
+    autosave.onEdit({
+      title: draftRef.current.title,
+      contentMarkdown: draftRef.current.contentMarkdown,
+    });
   }, [autosave]);
 
   function onTitleChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -107,7 +107,10 @@ export function LessonEditor({
     publishDraft();
     requestAnimationFrame(() => {
       textarea.focus();
-      textarea.setSelectionRange(selectionStart + prefix.length, selectionStart + prefix.length + selected.length);
+      textarea.setSelectionRange(
+        selectionStart + prefix.length,
+        selectionStart + prefix.length + selected.length,
+      );
     });
   }
 
@@ -177,7 +180,7 @@ export function LessonEditor({
       ) : null}
 
       <div className="space-y-1">
-        <label htmlFor="lesson-title" className="text-sm font-medium text-foreground">
+        <label htmlFor="lesson-title" className="text-foreground text-sm font-medium">
           Title
         </label>
         <input
@@ -185,18 +188,30 @@ export function LessonEditor({
           value={title}
           onChange={onTitleChange}
           maxLength={200}
-          className="w-full rounded-md border border-input px-3 py-2 text-sm"
+          className="border-input w-full rounded-lg border px-3 py-2 text-sm"
         />
       </div>
 
       <div role="toolbar" aria-label="Formatting" className="flex flex-wrap gap-2">
-        <ToolbarButton label="Insert heading" shortcut="# " onClick={() => applySyntax('## ', '', 'Heading')}>
+        <ToolbarButton
+          label="Insert heading"
+          shortcut="# "
+          onClick={() => applySyntax('## ', '', 'Heading')}
+        >
           H2
         </ToolbarButton>
-        <ToolbarButton label="Insert bold" shortcut="Ctrl+B" onClick={() => applySyntax('**', '**', 'bold text')}>
+        <ToolbarButton
+          label="Insert bold"
+          shortcut="Ctrl+B"
+          onClick={() => applySyntax('**', '**', 'bold text')}
+        >
           Bold
         </ToolbarButton>
-        <ToolbarButton label="Insert italic" shortcut="Ctrl+I" onClick={() => applySyntax('*', '*', 'italic text')}>
+        <ToolbarButton
+          label="Insert italic"
+          shortcut="Ctrl+I"
+          onClick={() => applySyntax('*', '*', 'italic text')}
+        >
           Italic
         </ToolbarButton>
         <ToolbarButton
@@ -224,7 +239,7 @@ export function LessonEditor({
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-1">
-          <label htmlFor="lesson-content" className="text-sm font-medium text-foreground">
+          <label htmlFor="lesson-content" className="text-foreground text-sm font-medium">
             Content
           </label>
           <textarea
@@ -235,17 +250,17 @@ export function LessonEditor({
             onKeyDown={onKeyDown}
             spellCheck
             rows={24}
-            className="h-[32rem] w-full resize-y rounded-md border border-input px-3 py-2 font-mono text-sm"
+            className="border-input h-[32rem] w-full resize-y rounded-lg border px-3 py-2 font-mono text-sm"
           />
         </div>
         <div className="space-y-1">
-          <span id="preview-label" className="text-sm font-medium text-foreground">
+          <span id="preview-label" className="text-foreground text-sm font-medium">
             Preview
           </span>
           <div
             role="region"
             aria-labelledby="preview-label"
-            className="h-[32rem] overflow-auto rounded-md border border-border bg-card px-4 py-3"
+            className="border-border bg-card h-[32rem] overflow-auto rounded-lg border px-4 py-3"
           >
             <MarkdownRenderer content={content} />
           </div>
@@ -253,7 +268,7 @@ export function LessonEditor({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p aria-live="polite" className="text-sm text-muted-foreground">
+        <p aria-live="polite" className="text-muted-foreground text-sm">
           {autosave.state.status === 'saving' && 'Saving…'}
           {autosave.state.status === 'saved' &&
             `Saved · v${version}${autosave.state.lastSavedAt ? ` · ${new Date(autosave.state.lastSavedAt).toLocaleTimeString()}` : ''}`}
@@ -263,14 +278,12 @@ export function LessonEditor({
           {autosave.state.status === 'idle' && `Unedited · v${version}`}
         </p>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
+          <Button
             onClick={() => void autosave.saveNow()}
             disabled={conflict || autosave.state.status === 'saving'}
-            className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
           >
             Save now
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -301,7 +314,7 @@ function ToolbarButton({
       aria-label={`${label}${shortcut ? ` (${shortcut})` : ''}`}
       title={shortcut ? `${label} (${shortcut})` : label}
       onClick={onClick}
-      className="rounded-md border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-background"
+      className="border-input text-foreground hover:bg-muted rounded-full border px-3 py-1 text-xs font-semibold"
     >
       {children}
     </button>
