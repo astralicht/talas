@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestApp, stopTestApp } from '../../helpers/app-server';
 import { registerVerifiedUser, type RegisteredUser } from '../../helpers/client';
-import { confirmMaterial, uploadToFakeS3 } from '../../helpers/storage-fake';
+import { confirmMaterial, uploadToStorage } from '../../helpers/material-upload';
 import {
   generateLessonForMaterial,
   runGenerationRequest,
@@ -34,7 +34,7 @@ async function uploadReadyMaterial(
   user: RegisteredUser,
   filename: string,
 ): Promise<{ materialId: string }> {
-  const upload = await uploadToFakeS3(
+  const upload = await uploadToStorage(
     user.session,
     user.user.id,
     filename,
@@ -158,7 +158,7 @@ describe('explicit lesson-generation requests (specs/005)', () => {
   it('answers non-revealing 404s for foreign and not-ready materials', async () => {
     const user = await setup();
     const other = await setup();
-    const foreignUpload = await uploadToFakeS3(
+    const foreignUpload = await uploadToStorage(
       other.session,
       other.user.id,
       'theirs.md',
@@ -176,7 +176,7 @@ describe('explicit lesson-generation requests (specs/005)', () => {
     expect((foreign.body as { code: string }).code).toBe('not_found');
 
     // A material that exists but never finished the pipeline is equally 404.
-    const pending = await uploadToFakeS3(
+    const pending = await uploadToStorage(
       user.session,
       user.user.id,
       'pending.md',

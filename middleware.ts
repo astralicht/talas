@@ -18,19 +18,15 @@ function newCorrelationId(): string {
 function contentSecurityPolicy(value: string): string {
   const development = process.env.NODE_ENV !== 'production';
   const scriptExtra = development ? " 'unsafe-eval'" : '';
-  // Development only: a local S3 endpoint runs over plain HTTP, so presigned
-  // uploads need localhost in connect-src. Production stays https-only.
-  const connectExtra =
-    development || process.env.E2E_MODE === 'true'
-      ? ' http://127.0.0.1:* http://localhost:*'
-      : '';
+  // Object storage is GridFS behind the API — the browser only ever talks to
+  // the app origin, so connect-src stays 'self' + https (no localhost extras).
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${value}' 'strict-dynamic'${scriptExtra}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    `connect-src 'self' https:${connectExtra}`,
+    "connect-src 'self' https:",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

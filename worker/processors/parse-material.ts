@@ -2,7 +2,7 @@ import { getLogger } from '@/lib/logging/logger';
 import { UnrecoverableError } from 'bullmq';
 import { MaterialRepository } from '@/lib/db/repositories/material-repository';
 import { ProcessingJobRepository } from '@/lib/db/repositories/processing-job-repository';
-import { getObjectBytes } from '@/lib/storage/s3';
+import { getObjectBytes } from '@/lib/storage/object-store';
 import { extractDocument, DocumentParseError } from '@/lib/parsing/extract';
 import type { ExtractedImage } from '@/lib/parsing/types';
 import { persistMaterialAssets } from '@/lib/materials/asset-service';
@@ -121,7 +121,7 @@ export async function processParseMaterial(payload: ParseMaterialJob): Promise<v
   await jobs.markReady(materialId);
 
   logger.info(
-    { materialId, pageCount, charCount: text.length },
+    { materialId, pageCount, charCount: text.length, images: images.length },
     'Document parsed; material is ready for lesson generation on request',
   );
 }

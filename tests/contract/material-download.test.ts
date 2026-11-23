@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestApp, stopTestApp } from '../helpers/app-server';
 import { registerVerifiedUser } from '../helpers/client';
 import { runPipeline, resetPipelineState } from '../helpers/pipeline';
-import { uploadToFakeS3, confirmMaterial } from '../helpers/storage-fake';
+import { uploadToStorage, confirmMaterial } from '../helpers/material-upload';
 import { TEXT_MATERIAL_BYTES } from '../fixtures/materials';
 import { setClamAvScannerForTests } from '@/lib/security/clamav';
 
@@ -21,7 +21,7 @@ afterAll(async () => {
 describe('material download endpoint', () => {
   it('streams the original bytes back to the owner with attachment headers', async () => {
     const user = await registerVerifiedUser(appUrl);
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'source.md',
@@ -42,7 +42,7 @@ describe('material download endpoint', () => {
     const user = await registerVerifiedUser(appUrl);
     const other = await registerVerifiedUser(appUrl);
 
-    const own = await uploadToFakeS3(
+    const own = await uploadToStorage(
       user.session,
       user.user.id,
       'private.md',
@@ -66,7 +66,7 @@ describe('material download endpoint', () => {
       status: 'infected',
       signature: 'Win.Test.EICAR_HDB-1',
     }));
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'eicar.txt',

@@ -76,8 +76,9 @@ without touching the codebase.
 1. **Hosting target** — single VM with Docker Compose (matches the repo
    as-is and is the working default), managed web (e.g. Vercel) + worker VM, or
    Kubernetes.
-2. **External provisioners** — MongoDB Atlas (mandated), Redis, S3-compatible
-   bucket, Resend: which services/regions, and who owns them?
+2. **External provisioners** — MongoDB Atlas (mandated; since TODO step 11 /
+   constitution v2.5.0 it is also the object store via GridFS, so there is no
+   separate bucket), Redis, Resend: which services/regions, and who owns them?
 3. **ClamAV** — sidecar container (default) or a managed/remote daemon
    (`CLAMAV_HOST` already abstracts this).
 4. **Trade-off** — worker scans are CPU-bound; the target must either place
@@ -94,5 +95,16 @@ without touching the codebase.
 ### Data Lifecycle
 
 - [ ] Backup/restore procedure for Atlas documented (30-day encrypted backup
-      requirement).
+      requirement). Uploaded files are GridFS collections in the same
+      database, so the one backup covers records and bytes (constitution
+      v2.5.0).
 - [ ] Audit-log TTL (90 days) confirmed in production.
+
+## Amendments (TODO step 11, Nov 2026)
+
+- **Object storage removed from the provisioner list**: the S3-compatible
+  bucket was replaced by GridFS inside the mandated MongoDB Atlas cluster
+  (constitution v2.5.0). `S3_*` environment variables and bucket CORS no
+  longer exist; the storage checklist item about bucket CORS is retired.
+  Atlas cluster sizing must now budget for blob bytes (25 MB per upload ×
+  plan material quota per user) and backup sizes grow accordingly.

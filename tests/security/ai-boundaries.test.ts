@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestApp, stopTestApp } from '../helpers/app-server';
 import { registerVerifiedUser } from '../helpers/client';
 import { runPipeline, resetPipelineState, generateLessonForMaterial } from '../helpers/pipeline';
-import { confirmMaterial, uploadToFakeS3 } from '../helpers/storage-fake';
+import { confirmMaterial, uploadToStorage } from '../helpers/material-upload';
 import { TEXT_MATERIAL_BYTES } from '../fixtures/materials';
 import { Lesson } from '@/lib/db/models/lesson';
 import { setGenerateObjectForTests } from '@/lib/ai/generate-lesson';
@@ -34,7 +34,7 @@ describe('AI provider boundaries', () => {
     const user = await registerVerifiedUser(appUrl);
     setAiFakes(false, true);
     try {
-      const upload = await uploadToFakeS3(
+      const upload = await uploadToStorage(
         user.session,
         user.user.id,
         'ai-fail.md',
@@ -75,7 +75,7 @@ describe('AI provider boundaries', () => {
 
   it('saves a bounded fake lesson under the 1 MB persistence ceiling', async () => {
     const user = await registerVerifiedUser(appUrl);
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'large.md',

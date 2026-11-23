@@ -2,13 +2,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestApp, stopTestApp } from '../../helpers/app-server';
 import { registerVerifiedUser } from '../../helpers/client';
 import {
-  fakeUpload,
   generateLessonForMaterial,
   materialJobsFor,
   runPipeline,
   resetPipelineState,
 } from '../../helpers/pipeline';
-import { confirmMaterial, uploadToFakeS3 } from '../../helpers/storage-fake';
+import { confirmMaterial, uploadToStorage } from '../../helpers/material-upload';
 import { setClamAvScannerForTests } from '@/lib/security/clamav';
 import { ProcessingJob } from '@/lib/db/models/processing-job';
 import { Lesson } from '@/lib/db/models/lesson';
@@ -30,7 +29,7 @@ afterAll(async () => {
 describe('bounded retry and idempotent processing', () => {
   it('re-enqueues the same stable job id without duplicate lessons', async () => {
     const user = await registerVerifiedUser(appUrl);
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'idempotent.md',
@@ -67,7 +66,7 @@ describe('bounded retry and idempotent processing', () => {
   it('fails safe when the scanner is unavailable and retries from the scan stage', async () => {
     const user = await registerVerifiedUser(appUrl);
     setClamAvScannerForTests(async () => ({ status: 'unavailable', detail: 'scanner down' }));
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'scanner-down.md',
@@ -108,7 +107,7 @@ describe('bounded retry and idempotent processing', () => {
       status: 'infected',
       signature: 'Fake.EICAR.Test',
     }));
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'infected.md',
@@ -125,6 +124,5 @@ describe('bounded retry and idempotent processing', () => {
     // Retry is refused: non-retryable failure.
     const retry = await user.session.post(`/api/materials/${upload.materialId}/retry`);
     expect(retry.status).toBe(409);
-    void fakeUpload;
   });
 });

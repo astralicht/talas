@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestApp, stopTestApp } from '../../helpers/app-server';
 import { registerVerifiedUser, type RegisteredUser } from '../../helpers/client';
-import { confirmMaterial, uploadToFakeS3 } from '../../helpers/storage-fake';
+import { confirmMaterial, uploadToStorage } from '../../helpers/material-upload';
 import { runPipeline, resetPipelineState, generateLessonForMaterial } from '../../helpers/pipeline';
 import { TEXT_MATERIAL_BYTES } from '../../fixtures/materials';
 import { LessonRepository } from '@/lib/db/repositories/lesson-repository';
@@ -24,7 +24,7 @@ afterAll(async () => {
 describe('upload → scan → parse → ready; lesson generation on request', () => {
   it('produces exactly one material, one lesson, and one initial revision', async () => {
     const { session } = user;
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       session,
       user.user.id,
       'cell-biology.md',

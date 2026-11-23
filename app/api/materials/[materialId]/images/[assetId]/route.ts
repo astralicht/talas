@@ -4,7 +4,7 @@ import type { NextResponse } from 'next/server';
 import { route } from '@/lib/http/handler';
 import { errors } from '@/lib/http/errors';
 import { MaterialAsset } from '@/lib/db/models/material-asset';
-import { getObjectBytes } from '@/lib/storage/s3';
+import { getObjectBytes } from '@/lib/storage/object-store';
 
 export const dynamic = 'force-dynamic';
 

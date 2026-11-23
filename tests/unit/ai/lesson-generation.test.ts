@@ -208,7 +208,7 @@ describe('lesson generation', () => {
       const output = await generateLesson(input);
       expect(output.provider).toBe('openai');
       expect(output.markdown).toContain('# Photosynthesis');
-      expect(output.promptVersion).toBe('v3');
+      expect(output.promptVersion).toBe('v4');
     } finally {
       setGenerateObjectForTests(null);
     }
@@ -276,6 +276,92 @@ describe('lesson generation', () => {
       await generateLesson(input);
       expect(seen[0]?.maxOutputTokens).toBe(MAX_OUTPUT_TOKENS);
       expect(MAX_OUTPUT_TOKENS).toBeLessThanOrEqual(4096);
+    } finally {
+      setGenerateObjectForTests(null);
+    }
+  });
+});
+
+describe('stored-figure prompts (TODO step 12)', () => {
+  const catalogUrl = '/api/materials/507f1f77bcf86cd799439011/images/507f191e77bcf86cd7994390';
+  const images = [
+    { url: catalogUrl, filename: 'photosynthesis.pdf', pageNumber: 3, width: 1600, height: 900 },
+  ];
+  const figureInput = {
+    userId: '507f1f77bcf86cd799439011',
+    filename: 'photosynthesis.pdf',
+    detectedMime: 'application/pdf',
+    text: '',
+    sources: [
+      { filename: 'photosynthesis.pdf', detectedMime: 'application/pdf', text: 'Plants convert light into energy.' },
+    ],
+    title: 'Figures',
+    images,
+  };
+
+  beforeEach(() => {
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY = 'test-google-key';
+    resetEnvCache();
+  });
+
+  afterEach(() => {
+    delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    resetEnvCache();
+    resetAiBudgetForTests();
+  });
+
+  it('renders the figure section with source context into the prompt', async () => {
+    const { setGenerateObjectForTests } = await import('@/lib/ai/generate-lesson');
+    let seenPrompt = '';
+    let seenSystem = '';
+    setGenerateObjectForTests((options) => {
+      seenPrompt = options.prompt;
+      seenSystem = options.system;
+      return Promise.resolve({ object: validLesson, usage: { inputTokens: 10, outputTokens: 5 } });
+    });
+    try {
+      await generateLesson(figureInput);
+    } finally {
+      setGenerateObjectForTests(null);
+    }
+    expect(seenPrompt).toContain('Stored figures extracted from the sources');
+    expect(seenPrompt).toContain(`- Figure 1 (from photosynthesis.pdf, page 3, 1600×900): ${catalogUrl}`);
+    expect(seenSystem).toContain('Never invent URLs');
+    expect(seenSystem).toContain('at most 6 figures in the whole lesson');
+  });
+
+  it('derives the allowlist from images and keeps catalog URLs in the markdown', async () => {
+    const { setGenerateObjectForTests } = await import('@/lib/ai/generate-lesson');
+    const withFigure = {
+      ...validLesson,
+      sections: [
+        { ...validLesson.sections[0], contentMarkdown: `See the diagram.\n\n![Diagram](${catalogUrl})` },
+        validLesson.sections[1],
+      ],
+    };
+    setGenerateObjectForTests(() => Promise.resolve({ object: withFigure, usage: { inputTokens: 10, outputTokens: 5 } }));
+    try {
+      const output = await generateLesson(figureInput);
+      expect(output.promptVersion).toBe('v4');
+      expect(output.markdown).toContain(`![Diagram](${catalogUrl})`);
+    } finally {
+      setGenerateObjectForTests(null);
+    }
+  });
+
+  it('strips figure URLs that were never offered', async () => {
+    const { setGenerateObjectForTests } = await import('@/lib/ai/generate-lesson');
+    const forged = {
+      ...validLesson,
+      sections: [
+        { ...validLesson.sections[0], contentMarkdown: '![X](/api/materials/other/images/zzz)' },
+        validLesson.sections[1],
+      ],
+    };
+    setGenerateObjectForTests(() => Promise.resolve({ object: forged }));
+    try {
+      const output = await generateLesson(figureInput);
+      expect(output.markdown).not.toContain('/api/materials/other/images/zzz');
     } finally {
       setGenerateObjectForTests(null);
     }

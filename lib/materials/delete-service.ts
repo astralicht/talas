@@ -1,6 +1,6 @@
 import { getLogger } from '@/lib/logging/logger';
 import { Types } from 'mongoose';
-import { deleteObject, deleteObjectPrefix } from '@/lib/storage/s3';
+import { deleteObject, deleteObjectPrefix } from '@/lib/storage/object-store';
 import { Material, type IMaterial } from '@/lib/db/models/material';
 import { ProcessingJob } from '@/lib/db/models/processing-job';
 import { Lesson, type ILesson } from '@/lib/db/models/lesson';

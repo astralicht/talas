@@ -2,13 +2,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createCanvas } from '@napi-rs/canvas';
 import { startTestApp, stopTestApp } from '../../helpers/app-server';
 import { registerVerifiedUser } from '../../helpers/client';
-import { confirmMaterial, uploadToFakeS3 } from '../../helpers/storage-fake';
+import { confirmMaterial, uploadToStorage } from '../../helpers/material-upload';
 import { runPipeline, resetPipelineState, runGenerationRequest } from '../../helpers/pipeline';
 import { buildDocxWithImage } from '../../fixtures/docx';
-import { buildPdf } from '../../fixtures/pdf';
+import { buildPdf, buildPdfWithImage } from '../../fixtures/pdf';
 import { MaterialAsset } from '@/lib/db/models/material-asset';
-import { getFakeObjectStore } from '@/lib/storage/s3';
-
+import { getObjectBytes } from '@/lib/storage/object-store';
 let appUrl: string;
 
 const DOCX_MIME =
@@ -35,7 +34,7 @@ describe('material image assets (specs/005 FR-008)', () => {
   it('stores DOCX images as tenant-scoped assets during the pipeline', async () => {
     const user = await registerVerifiedUser(appUrl);
     const docx = await buildDocxWithImage(fixturePng());
-    const upload = await uploadToFakeS3(user.session, user.user.id, 'figures.docx', DOCX_MIME, docx);
+    const upload = await uploadToStorage(user.session, user.user.id, 'figures.docx', DOCX_MIME, docx);
     await confirmMaterial(user.session, upload.materialId);
     await runPipeline({ materialId: upload.materialId });
 
@@ -46,7 +45,10 @@ describe('material image assets (specs/005 FR-008)', () => {
     expect(assets[0]?.contentType).toBe('image/png');
     expect(assets[0]?.byteSize).toBeGreaterThan(0);
     expect(assets[0]?.assetKey).toContain(`/images/${assets[0]?._id.toHexString()}`);
-    expect(getFakeObjectStore().objects.get(assets[0]?.assetKey ?? '')).toBeDefined();
+    // The asset bytes live in GridFS under the asset key.
+    const assetKey = assets[0]?.assetKey ?? '';
+    const stored = await getObjectBytes(assetKey);
+    expect(stored.byteLength).toBe(assets[0]?.byteSize);
 
     // The generated lesson may reference the asset through the fake AI path;
     // the catalog URL must point at the tenant-scoped route.
@@ -66,10 +68,47 @@ describe('material image assets (specs/005 FR-008)', () => {
     expect(lesson?.contentMarkdown).toContain(`![Figure](/api/materials/${upload.materialId}/images/${assets[0]?._id.toHexString()})`);
   });
 
+  it('extracts PDF raster figures into assets and offers them to generation (TODO step 13)', async () => {
+    const user = await registerVerifiedUser(appUrl);
+    const pdf = buildPdfWithImage([
+      'Projectile motion follows a parabolic trajectory under constant gravity.',
+      'The horizontal velocity remains constant while the vertical velocity changes.',
+      'Range depends on the launch angle and the initial speed of the projectile.',
+      'Maximum height is reached when the vertical velocity component reaches zero.',
+      'Air resistance is neglected in the idealized model of projectile motion.',
+    ]);
+    const upload = await uploadToStorage(user.session, user.user.id, 'figures.pdf', 'application/pdf', pdf);
+    await confirmMaterial(user.session, upload.materialId);
+    await runPipeline({ materialId: upload.materialId });
+
+    const assets = await MaterialAsset.find({ userId: user.user.id, materialId: upload.materialId })
+      .lean<{ _id: { toHexString(): string }; contentType: string }[]>()
+      .exec();
+    expect(assets.length).toBeGreaterThanOrEqual(1);
+    expect(assets[0]?.contentType).toBe('image/png');
+
+    // The text-bearing source stays on the catalog path; the fake model embeds
+    // the first offered catalog URL into the stored lesson markdown.
+    await user.session.post('/api/lessons/generate', {
+      title: 'PDF figures',
+      materialIds: [upload.materialId],
+    });
+    const queued = (await import('@/lib/jobs/queues')).takeMemoryJobsForTests('lesson-generation');
+    expect(queued).toHaveLength(1);
+    const { processGenerateLessonRequest } = await import('@/worker/processors/generate-lesson');
+    await processGenerateLessonRequest(queued[0]?.payload as never);
+
+    const { Lesson } = await import('@/lib/db/models/lesson');
+    const lesson = await Lesson.findOne({ userId: user.user.id })
+      .lean<{ contentMarkdown: string }>()
+      .exec();
+    expect(lesson?.contentMarkdown).toContain(`![Figure](/api/materials/${upload.materialId}/images/${assets[0]?._id.toHexString()})`);
+  });
+
   it('renders image-only PDFs into page assets instead of failing', async () => {
     const user = await registerVerifiedUser(appUrl);
     const pdf = buildPdf([]);
-    const upload = await uploadToFakeS3(user.session, user.user.id, 'scan.pdf', 'application/pdf', pdf);
+    const upload = await uploadToStorage(user.session, user.user.id, 'scan.pdf', 'application/pdf', pdf);
     await confirmMaterial(user.session, upload.materialId);
     await runPipeline({ materialId: upload.materialId });
 
@@ -97,7 +136,7 @@ describe('material image assets (specs/005 FR-008)', () => {
   it('serves assets tenant-scoped with private caching and safe 404s', async () => {
     const user = await registerVerifiedUser(appUrl);
     const docx = await buildDocxWithImage(fixturePng());
-    const upload = await uploadToFakeS3(user.session, user.user.id, 'routed.docx', DOCX_MIME, docx);
+    const upload = await uploadToStorage(user.session, user.user.id, 'routed.docx', DOCX_MIME, docx);
     await confirmMaterial(user.session, upload.materialId);
     await runPipeline({ materialId: upload.materialId });
     const asset = await MaterialAsset.findOne({ userId: user.user.id, materialId: upload.materialId })
@@ -128,6 +167,8 @@ describe('material image assets (specs/005 FR-008)', () => {
     expect(deleted.status).toBe(204);
     const remaining = await MaterialAsset.countDocuments({ userId: user.user.id, materialId: upload.materialId }).exec();
     expect(remaining).toBe(0);
-    expect(getFakeObjectStore().objects.get(`materials/${user.user.id}/${upload.materialId}/images/${assetId}`)).toBeUndefined();
+    await expect(
+      getObjectBytes(`materials/${user.user.id}/${upload.materialId}/images/${assetId}`),
+    ).rejects.toMatchObject({ name: 'NotFound' });
   });
 });

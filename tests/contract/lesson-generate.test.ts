@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestApp, stopTestApp } from '../helpers/app-server';
 import { registerVerifiedUser, type RegisteredUser } from '../helpers/client';
-import { confirmMaterial, uploadToFakeS3 } from '../helpers/storage-fake';
+import { confirmMaterial, uploadToStorage } from '../helpers/material-upload';
 import {
   runGenerationRequest,
   runPipeline,
@@ -18,7 +18,7 @@ beforeAll(async () => {
   resetPipelineState();
 
   const user = await registerVerifiedUser(appUrl);
-  const upload = await uploadToFakeS3(
+  const upload = await uploadToStorage(
     user.session,
     user.user.id,
     'contract-generate.md',

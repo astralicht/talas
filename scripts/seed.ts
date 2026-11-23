@@ -5,7 +5,7 @@ import { Material } from '../lib/db/models/material';
 import { Lesson } from '../lib/db/models/lesson';
 import { LessonRevision } from '../lib/db/models/lesson-revision';
 import { hashPassword } from '../lib/auth/password';
-import { putObject } from '../lib/storage/s3';
+import { putObject } from '../lib/storage/object-store';
 
 const SEED_PASSWORD = 'talas-local-password';
 

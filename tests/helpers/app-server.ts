@@ -15,9 +15,6 @@ const DEFAULTS: Record<string, string> = {
   JOB_QUEUE_MEMORY: 'true',
   RATE_LIMIT_MEMORY: 'true',
   EMAIL_TRANSPORT: 'memory',
-  S3_FAKE: 'true',
-  S3_ACCESS_KEY_ID: 'integration-key',
-  S3_SECRET_ACCESS_KEY: 'integration-secret-abcdefghijklmnop',
   CLAMAV_FAKE: 'clean',
   AI_FAKE_LESSON: 'true',
   AI_FAULT_INJECTION: 'false',
@@ -58,7 +55,7 @@ async function ensureBuiltApp(): Promise<void> {
 /**
  * Serves the built Next application in-process so route handlers, cookies, CSRF,
  * and middleware are exercised through real HTTP. External services are supplied
- * by the S3_FAKE / CLAMAV_FAKE / AI_FAKE_LESSON fake stack plus the memory email
+ * by the CLAMAV_FAKE / AI_FAKE_LESSON fake stack plus the memory email
  * sender and BullMQ memory queue. NODE_ENV stays 'test' in this process.
  */
 export async function startTestApp(): Promise<string> {

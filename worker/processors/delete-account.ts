@@ -8,7 +8,7 @@ import { RefreshToken } from '@/lib/db/models/refresh-token';
 import { EmailVerificationToken } from '@/lib/db/models/email-verification-token';
 import { PasswordResetToken } from '@/lib/db/models/password-reset-token';
 import { AccountDeletionRequest } from '@/lib/db/models/account-deletion-request';
-import { deleteObjectPrefix } from '@/lib/storage/s3';
+import { deleteObjectPrefix } from '@/lib/storage/object-store';
 import { auditEvents } from '@/lib/logging/audit-events';
 import type { DeleteAccountJob } from '@/lib/jobs/schemas';
 

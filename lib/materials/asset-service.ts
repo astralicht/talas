@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 import { getLogger } from '@/lib/logging/logger';
 import { MaterialAsset, type IMaterialAsset } from '@/lib/db/models/material-asset';
-import { deleteObjectPrefix, putObject } from '@/lib/storage/s3';
+import { deleteObjectPrefix, putObject } from '@/lib/storage/object-store';
 import type { ExtractedImage } from '@/lib/parsing/types';
 
 /** Server-owned S3 layout for extracted images (specs/005 FR-008). */

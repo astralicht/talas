@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { extractDocument } from '@/lib/parsing/extract';
 import { extractPdfDocument } from '@/lib/parsing/pdf';
 import { extractTextDocument } from '@/lib/parsing/text';
-import { buildPdf } from '../../fixtures/pdf';
+import { buildPdf, buildPdfWithImage } from '../../fixtures/pdf';
 
 describe('text extraction', () => {
   it('extracts Markdown and plain text with char counts and no page count', () => {
@@ -43,6 +43,25 @@ describe('PDF extraction', () => {
     await expect(extractPdfDocument(Buffer.from('not a pdf at all'))).rejects.toMatchObject({
       code: 'malformed_document',
     });
+  });
+
+  it('extracts embedded raster images from a text-bearing PDF (TODO step 13)', async () => {
+    const pdf = buildPdfWithImage([
+      'Newtonian mechanics describes the relationship between a body and the forces acting upon it.',
+      'A body remains at rest, or in uniform motion, unless acted upon by a net external force.',
+      'The acceleration of a body is parallel and directly proportional to the net force applied.',
+      'Mass is a measure of inertia: larger masses accelerate less under the same applied force.',
+      'These laws form the foundation of classical mechanics and still hold at everyday scales.',
+    ]);
+    const result = await extractPdfDocument(pdf);
+    expect(result.pageCount).toBe(1);
+    expect(result.images).toHaveLength(1);
+    const image = result.images?.[0];
+    expect(image?.pageNumber).toBe(1);
+    expect(image?.width).toBe(200);
+    expect(image?.height).toBe(150);
+    expect(image?.contentType).toBe('image/png');
+    expect(image?.data.byteLength).toBeGreaterThanOrEqual(8 * 1024);
   });
 });
 

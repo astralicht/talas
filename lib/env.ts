@@ -11,14 +11,6 @@ const envSchema = z
     DATABASE_URL: z.string().min(1).default('mongodb://localhost:27017/talas?replicaSet=rs0'),
     REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
 
-    S3_ENDPOINT: z.string().url().default('http://localhost:9000'),
-    S3_REGION: z.string().min(1).default('us-east-1'),
-    S3_BUCKET: z.string().min(1).default('talas-local'),
-    S3_ACCESS_KEY_ID: z.string().min(1).default('talas'),
-    S3_SECRET_ACCESS_KEY: z.string().min(1).default('talas-local-secret'),
-    S3_FORCE_PATH_STYLE: booleanString.default(true),
-    S3_FAKE: booleanString.default(false),
-
     CLAMAV_HOST: z.string().min(1).default('localhost'),
     CLAMAV_PORT: z.coerce.number().int().positive().default(3310),
     CLAMAV_FAKE: z.enum(['', 'clean', 'infected', 'unavailable']).default(''),
@@ -83,8 +75,6 @@ const envSchema = z
       ['JWT_ACCESS_SECRET', value.JWT_ACCESS_SECRET],
       ['JWT_REFRESH_SECRET', value.JWT_REFRESH_SECRET],
       ['CSRF_SECRET', value.CSRF_SECRET],
-      ['S3_ACCESS_KEY_ID', value.S3_ACCESS_KEY_ID],
-      ['S3_SECRET_ACCESS_KEY', value.S3_SECRET_ACCESS_KEY],
     ] as const;
 
     for (const [key, secret] of required) {

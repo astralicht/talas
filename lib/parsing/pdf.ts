@@ -44,9 +44,62 @@ interface PdfTextContent {
 interface PdfPage {
   getTextContent(): Promise<PdfTextContent>;
   getOperatorList(): Promise<{ fnArray: number[]; argsArray: unknown[][] }>;
-  objs?: { get?(name: string): unknown };
+  objs?: PdfImageRegistry;
+  commonObjs?: PdfImageRegistry;
   render?(options: Record<string, unknown>): { promise: Promise<void> };
   getViewport(options: { scale: number }): { width: number; height: number };
+}
+
+/** Shape of a decoded image object in pdfjs's object registries. */
+interface RawImageObject {
+  width?: number;
+  height?: number;
+  kind?: number;
+  data?: Uint8Array;
+}
+
+/**
+ * pdfjs resolves image objects asynchronously: a plain synchronous `get` can
+ * throw "Requesting object that isn't resolved yet" right after the operator
+ * list is built. The callback form resolves both immediately-available and
+ * later-arriving objects, bounded by a short timeout, with `commonObjs` as the
+ * fallback registry for shared XObjects.
+ */
+interface PdfImageRegistry {
+  get?(
+    name: string,
+    callback?: (obj: RawImageObject | undefined) => void,
+  ): unknown;
+}
+
+async function readImageObject(
+  page: PdfPage,
+  objName: string,
+): Promise<RawImageObject | undefined> {
+  const registries = [page.objs, page.commonObjs];
+  for (const registry of registries) {
+    const raw = await new Promise<RawImageObject | undefined>((resolve) => {
+      if (typeof registry?.get !== 'function') {
+        resolve(undefined);
+        return;
+      }
+      let settled = false;
+      const done = (value: RawImageObject | undefined): void => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
+      try {
+        registry.get(objName, done);
+      } catch {
+        resolve(undefined);
+        return;
+      }
+      setTimeout(() => done(undefined), 3_000);
+    });
+    if (raw) return raw;
+  }
+  return undefined;
 }
 
 interface PdfDocument {
@@ -115,7 +168,11 @@ export async function extractPdfDocument(buffer: Buffer): Promise<ExtractResult>
       );
     }
 
-    const ops = document.OPS ?? {};
+    // The OPS enum lives on the pdfjs MODULE, not on the document proxy —
+    // `document.OPS` is undefined and silently yielded an empty operator
+    // filter, disabling raster extraction for every text-bearing PDF
+    // (TODO step 13).
+    const ops = pdfjs.OPS ?? {};
     const imageOps = new Set(
       Object.entries(ops)
         .filter(([name]) => IMAGE_OP_NAMES.has(name))
@@ -157,9 +214,7 @@ export async function extractPdfDocument(buffer: Buffer): Promise<ExtractResult>
           const objName = args[index]?.[0];
           if (typeof objName !== 'string') continue;
           try {
-            const raw = page.objs?.get?.(objName) as
-              | { width?: number; height?: number; kind?: number; data?: Uint8Array }
-              | undefined;
+            const raw = await readImageObject(page, objName);
             const width = raw?.width ?? 0;
             const height = raw?.height ?? 0;
             const kind = raw?.kind ?? 0;
@@ -282,8 +337,9 @@ async function renderPagesAsImages(
           pageNumber,
           positionMarker: `[[talas-image:${rendered.length + 1}]]`,
         });
-      } catch (renderError) {
-        console.error('[render-debug]', renderError instanceof Error ? `${renderError.name}: ${renderError.message}` : renderError);
+      } catch {
+        // Best-effort rendering (specs/005 FR-008): a failed page render never
+        // fails the parse; the outcome is visible in the parse log's image count.
         continue;
       }
     }

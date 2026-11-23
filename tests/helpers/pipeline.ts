@@ -3,7 +3,7 @@ import {
   resetMemoryJobsForTests,
   takeMemoryJobsForTests,
 } from '@/lib/jobs/queues';
-import { resetFakeObjectStore, getFakeObjectStore } from '@/lib/storage/s3';
+import { putObject } from '@/lib/storage/object-store';
 import { processScanMaterial } from '@/worker/processors/scan-material';
 import { processParseMaterial } from '@/worker/processors/parse-material';
 import {
@@ -19,10 +19,9 @@ import type {
   ScanMaterialJob,
 } from '@/lib/jobs/schemas';
 
-/** Clears the memory queue, fake object store, and any pending outbox state. */
+/** Clears the memory queue and any pending outbox state. */
 export function resetPipelineState(): void {
   resetMemoryJobsForTests();
-  resetFakeObjectStore();
 }
 
 /** Drains and consumes material jobs so each payload runs exactly once. */
@@ -127,6 +126,11 @@ export async function runGenerationRequest(
   return payload;
 }
 
-export const fakeUpload = (storageKey: string, bytes: Buffer, contentType: string) => {
-  getFakeObjectStore().objects.set(storageKey, { bytes, contentType });
+/** Stores fixture bytes for a material the way the upload route would. */
+export const uploadFixture = async (
+  storageKey: string,
+  bytes: Buffer,
+  contentType: string,
+): Promise<void> => {
+  await putObject({ key: storageKey, body: bytes, contentType });
 };

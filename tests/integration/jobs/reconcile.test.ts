@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Types } from 'mongoose';
 import { startTestApp, stopTestApp } from '../../helpers/app-server';
-import { resetPipelineState, runPipeline, fakeUpload } from '../../helpers/pipeline';
+import { resetPipelineState, runPipeline, uploadFixture } from '../../helpers/pipeline';
 import { reconcileStaleJobs } from '@/lib/jobs/reconcile';
 import { listMemoryJobsForTests } from '@/lib/jobs/queues';
 import { MATERIAL_QUEUE, LESSON_GENERATION_QUEUE, generateLessonJobIdFor } from '@/lib/jobs/schemas';
@@ -55,7 +55,7 @@ describe('stale job reconciliation (Redis-loss recovery)', () => {
   it('re-enqueues a queued-never-started scan job and finishes the pipeline', async () => {
     const userId = new Types.ObjectId();
     const material = await seedMaterial(userId, 'uploaded');
-    fakeUpload(material.storageKey, TEXT, 'text/markdown');
+    await uploadFixture(material.storageKey, TEXT, 'text/markdown');
     await ProcessingJob.create({
       userId,
       materialId: new Types.ObjectId(material.id),
@@ -87,7 +87,7 @@ describe('stale job reconciliation (Redis-loss recovery)', () => {
   it('recovers a material whose worker died mid-stage (expired lease)', async () => {
     const userId = new Types.ObjectId();
     const material = await seedMaterial(userId, 'scanning');
-    fakeUpload(material.storageKey, TEXT, 'text/markdown');
+    await uploadFixture(material.storageKey, TEXT, 'text/markdown');
     await ProcessingJob.create({
       userId,
       materialId: new Types.ObjectId(material.id),

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestApp, stopTestApp } from '../helpers/app-server';
 import { registerVerifiedUser } from '../helpers/client';
 import { runPipeline, resetPipelineState } from '../helpers/pipeline';
-import { uploadToFakeS3, confirmMaterial } from '../helpers/storage-fake';
+import { uploadToStorage, confirmMaterial } from '../helpers/material-upload';
 import { TEXT_MATERIAL_BYTES, EICAR_BYTES } from '../fixtures/materials';
 import { enforceUploadRateLimit, UPLOAD_MINUTE_POINTS } from '@/lib/security/upload-rate-limit';
 import { setClamAvScannerForTests } from '@/lib/security/clamav';
@@ -23,7 +23,7 @@ describe('upload boundaries', () => {
   it('rejects mime-spoofed uploads at confirm time', async () => {
     const user = await registerVerifiedUser(appUrl);
     // A text payload declared as PDF; presign accepts the declaration, the magic bytes do not.
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'trojan.pdf',
@@ -42,29 +42,29 @@ describe('upload boundaries', () => {
   it('quarantines the EICAR test file and removes the stored bytes', async () => {
     const user = await registerVerifiedUser(appUrl);
     setClamAvScannerForTests(async () => ({ status: 'infected', signature: 'Win.Test.EICAR_HDB-1' }));
-    const fakeUpload = await uploadToFakeS3(
+    const uploaded = await uploadToStorage(
       user.session,
       user.user.id,
       'eicar.txt',
       'text/plain',
       EICAR_BYTES,
     );
-    const confirm = await confirmMaterial(user.session, fakeUpload.materialId);
+    const confirm = await confirmMaterial(user.session, uploaded.materialId);
     expect(confirm.status).toBe(202);
-    const seen = await runPipeline({ materialId: fakeUpload.materialId });
+    const seen = await runPipeline({ materialId: uploaded.materialId });
     expect(seen.map((job) => job.type)).toEqual(['scan_material']);
 
-    const material = await user.session.get(`/api/materials/${fakeUpload.materialId}`);
+    const material = await user.session.get(`/api/materials/${uploaded.materialId}`);
     expect((material.body as { status: string }).status).toBe('quarantined');
     // The stored object is gone from the fake store: nothing unclean lingers.
-    const retry = await user.session.post(`/api/materials/${fakeUpload.materialId}/retry`);
+    const retry = await user.session.post(`/api/materials/${uploaded.materialId}/retry`);
     expect(retry.status).toBe(409);
   });
 
   it('fails closed when the scanner is unavailable', async () => {
     const user = await registerVerifiedUser(appUrl);
     setClamAvScannerForTests(async () => ({ status: 'unavailable', detail: 'tcp refused' }));
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'unscanned.md',
@@ -97,7 +97,7 @@ describe('upload boundaries', () => {
 
   it('does not leak the storage key in material views', async () => {
     const user = await registerVerifiedUser(appUrl);
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'listed.md',

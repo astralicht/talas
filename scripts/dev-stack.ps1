@@ -1,4 +1,5 @@
-# Windows dev stack for Talas: MongoDB 7 (replica set) + Redis + SeaweedFS S3.
+# Windows dev stack for Talas: MongoDB 7 (replica set) + Redis. Object storage
+# is GridFS inside the database itself (TODO step 11): no third service.
 # PowerShell counterpart of scripts/dev-stack.sh: same ports, URLs, and data
 # layout under .data/dev-stack (gitignored). No Docker required.
 #
@@ -10,7 +11,7 @@
 # on every restart); set NGROK_DOMAIN=<name>.ngrok-free.app for a static
 # domain after claiming it once at dashboard.ngrok.com/domains.
 #
-# Binaries are resolved in order: env override (MONGO_BIN / REDIS_BIN / WEED_BIN)
+# Binaries are resolved in order: env override (MONGO_BIN / REDIS_BIN)
 # -> PATH -> .data/dev-stack -> automatic download. `worker` loads .env.local
 # (the web app reads it itself; the worker does not).
 #
@@ -23,14 +24,11 @@ $REPO_ROOT = Split-Path -Parent $PSScriptRoot
 Set-Location $REPO_ROOT
 
 $MONGO_VERSION = '7.0.14'
-$WEED_VERSION = '4.54'
 $MONGO_PORT = if ($env:MONGO_PORT) { [int]$env:MONGO_PORT } else { 27098 }
 $REDIS_PORT = if ($env:REDIS_PORT) { [int]$env:REDIS_PORT } else { 6399 }
-$S3_PORT = if ($env:S3_PORT) { [int]$env:S3_PORT } else { 9002 }
 $DATA_DIR = if ($env:DATA_DIR) { $env:DATA_DIR } else { Join-Path (Get-Location) '.data\dev-stack' }
 $MONGO_DIR = Join-Path $DATA_DIR 'mongo'
 $REDIS_DIR = Join-Path $DATA_DIR 'redis'
-$WEED_DIR = Join-Path $DATA_DIR 'weed'
 $LOG_DIR = Join-Path $DATA_DIR 'logs'
 New-Item -ItemType Directory -Force -Path $DATA_DIR, $LOG_DIR | Out-Null
 
@@ -146,25 +144,6 @@ function Resolve-Redis {
   }
 }
 
-function Resolve-Weed {
-  if ($env:WEED_BIN -and (Test-Path $env:WEED_BIN)) { return $env:WEED_BIN }
-  $pathCommand = Get-Command weed -ErrorAction SilentlyContinue
-  if ($pathCommand) { return $pathCommand.Source }
-  $dist = Join-Path $DATA_DIR 'weed-dist'
-  $local = Find-Exe $dist 'weed.exe'
-  if ($local) { return $local }
-  New-Item -ItemType Directory -Force -Path $dist | Out-Null
-  $zip = Join-Path $DATA_DIR "seaweedfs-$WEED_VERSION-windows_amd64.zip"
-  if (-not (Test-Path $zip)) {
-    Save-Download "https://github.com/seaweedfs/seaweedfs/releases/download/$WEED_VERSION/windows_amd64.zip" $zip
-  }
-  Log 'Extracting SeaweedFS...'
-  Expand-Archive -Path $zip -DestinationPath $dist -Force
-  $local = Find-Exe $dist 'weed.exe'
-  if (-not $local) { Die 'weed.exe not found in the SeaweedFS archive' }
-  return $local
-}
-
 # ---------------------------------------------------------------- services
 
 function Start-Mongo {
@@ -216,55 +195,6 @@ function Start-Redis {
   Log "Redis ready at redis://127.0.0.1:$REDIS_PORT"
 }
 
-function Start-S3 {
-  $weed = Resolve-Weed
-  if (Test-PortOpen -Port $S3_PORT) {
-    Log "S3 already running at http://127.0.0.1:$S3_PORT"
-  } else {
-    New-Item -ItemType Directory -Force -Path $WEED_DIR, $LOG_DIR | Out-Null
-    # Clear stale instances from a previous unclean stop: they hold the master
-    # port 9333 even when the S3 port is free, and the bind failure is silent.
-    Stop-PortOwners @(9333)
-    Start-Sleep -Seconds 1
-    Log "Starting SeaweedFS S3 ($weed, data in $WEED_DIR)..."
-    $proc = Start-Process -FilePath $weed -ArgumentList @(
-      'server', '-dir', $WEED_DIR, '-ip', '127.0.0.1', '-s3', '-s3.port', "$S3_PORT"
-    ) -WorkingDirectory $WEED_DIR -WindowStyle Hidden -PassThru `
-      -RedirectStandardOutput (Join-Path $LOG_DIR 'weed.log') `
-      -RedirectStandardError (Join-Path $LOG_DIR 'weed.err.log')
-    Set-Content -Path (Join-Path $DATA_DIR 'weed.pid') -Value $proc.Id
-    if (-not (Wait-PortOpen -Port $S3_PORT -Seconds 60)) {
-      Die "SeaweedFS did not open port $S3_PORT (see $(Join-Path $LOG_DIR 'weed.log'))"
-    }
-    Log "S3 ready at http://127.0.0.1:$S3_PORT (bucket talas-local)"
-  }
-  # Create the bucket and set browser-upload CORS (idempotent). Requires
-  # @aws-sdk/client-s3 from node_modules.
-  Ensure-Pnpm
-  $setup = @"
-import { S3Client, CreateBucketCommand, PutBucketCorsCommand } from '@aws-sdk/client-s3';
-const client = new S3Client({
-  region: 'us-east-1',
-  endpoint: 'http://127.0.0.1:$S3_PORT',
-  forcePathStyle: true,
-  credentials: { accessKeyId: 'talas', secretAccessKey: 'talas-local-secret' },
-});
-try { await client.send(new CreateBucketCommand({ Bucket: 'talas-local' })); console.log('bucket created'); }
-catch (e) { if (!/BucketAlready|already exists/i.test(String(e.name ?? e))) throw e; }
-await client.send(new PutBucketCorsCommand({
-  Bucket: 'talas-local',
-  CORSConfiguration: { CORSRules: [{
-    AllowedOrigins: ['*'], AllowedMethods: ['PUT', 'GET', 'HEAD'],
-    AllowedHeaders: ['*'], ExposeHeaders: ['ETag'], MaxAgeSeconds: 3600,
-  }] },
-}));
-console.log('bucket CORS configured');
-"@
-  & pnpm exec node --input-type=module -e $setup
-  if ($LASTEXITCODE -ne 0) { Die 'bucket creation/CORS setup failed (needs pnpm install first)' }
-  Log 'Bucket talas-local + CORS verified'
-}
-
 # ---------------------------------------------------------------- env file
 
 function New-DevSecret([string]$Fallback) {
@@ -286,14 +216,6 @@ function New-EnvLines {
     '',
     "DATABASE_URL=mongodb://127.0.0.1:$MONGO_PORT/talas?replicaSet=rs0",
     "REDIS_URL=redis://127.0.0.1:$REDIS_PORT",
-    '',
-    "S3_ENDPOINT=http://127.0.0.1:$S3_PORT",
-    'S3_REGION=us-east-1',
-    'S3_BUCKET=talas-local',
-    'S3_ACCESS_KEY_ID=talas',
-    'S3_SECRET_ACCESS_KEY=talas-local-secret',
-    'S3_FORCE_PATH_STYLE=true',
-    'S3_FAKE=false',
     '',
     'CLAMAV_FAKE=clean',
     '',
@@ -395,7 +317,7 @@ function Start-Tunnel {
 
 function Stop-Stack([bool]$Quiet = $false) {
   $released = @()
-  foreach ($entry in @(@('mongod.pid', 'mongo'), @('redis.pid', 'redis'), @('weed.pid', 'seaweedfs'))) {
+  foreach ($entry in @(@('mongod.pid', 'mongo'), @('redis.pid', 'redis'))) {
     $pidFile = Join-Path $DATA_DIR $entry[0]
     if (Test-Path $pidFile) {
       $procId = Get-Content $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -411,8 +333,8 @@ function Stop-Stack([bool]$Quiet = $false) {
   # Dying processes accept TCP connects during shutdown grace; wait until every
   # port actually refuses connections so a following start is not confused.
   for ($attempt = 0; $attempt -lt 20; $attempt += 1) {
-    if ((Test-PortOpen -Port $MONGO_PORT) -or (Test-PortOpen -Port $REDIS_PORT) -or (Test-PortOpen -Port $S3_PORT)) {
-      Stop-PortOwners @($MONGO_PORT, $REDIS_PORT, $S3_PORT, 9333)
+    if ((Test-PortOpen -Port $MONGO_PORT) -or (Test-PortOpen -Port $REDIS_PORT)) {
+      Stop-PortOwners @($MONGO_PORT, $REDIS_PORT)
       Start-Sleep -Seconds 1
     } else {
       break
@@ -432,10 +354,6 @@ function Show-Status {
   if (Test-PortOpen -Port $REDIS_PORT) {
     Log "redis   : up   (redis://127.0.0.1:$REDIS_PORT)"
   } else { Log 'redis   : down'; $ok = $false }
-  if (Test-PortOpen -Port $S3_PORT) {
-    Log "s3      : up   (http://127.0.0.1:$S3_PORT, bucket talas-local)"
-  } else { Log 's3      : down'; $ok = $false }
-
   $webUp = $false
   $workerUp = $false
   $nodeProcs = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue
@@ -473,13 +391,12 @@ function Show-Status {
 function Start-Stack {
   if ($script:FreshFlag) {
     Stop-Stack $true
-    Remove-Item $MONGO_DIR, $WEED_DIR -Recurse -Force -ErrorAction SilentlyContinue
-    New-Item -ItemType Directory -Force -Path $MONGO_DIR, $WEED_DIR | Out-Null
+    Remove-Item $MONGO_DIR -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force -Path $MONGO_DIR | Out-Null
     Log 'Wiped service data (--fresh)'
   }
   Start-Mongo
   Start-Redis
-  Start-S3
   if ($script:SeedFlag) {
     Log 'Syncing indexes and seeding demo accounts...'
     Invoke-Seed

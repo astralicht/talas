@@ -4,7 +4,7 @@ import {
   registerVerifiedUser,
   TestSession,
 } from '../../helpers/client';
-import { confirmMaterial, materialStatus } from '../../helpers/storage-fake';
+import { confirmMaterial, materialStatus } from '../../helpers/material-upload';
 import { runPipeline, resetPipelineState } from '../../helpers/pipeline';
 import { TEXT_MATERIAL_BYTES } from '../../fixtures/materials';
 import { Material } from '@/lib/db/models/material';

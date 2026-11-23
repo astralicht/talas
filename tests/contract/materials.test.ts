@@ -6,9 +6,9 @@ import { resetPipelineState } from '../helpers/pipeline';
 import {
   confirmMaterial,
   materialStatus,
-  uploadToFakeS3,
+  uploadToStorage,
   type MaterialView,
-} from '../helpers/storage-fake';
+} from '../helpers/material-upload';
 import { TEXT_MATERIAL_BYTES } from '../fixtures/materials';
 import { runPipeline } from '../helpers/pipeline';
 import { Material } from '@/lib/db/models/material';
@@ -27,7 +27,7 @@ afterAll(async () => {
 describe('materials endpoints contract', () => {
   it('lists materials in the MaterialList shape', async () => {
     const user = await registerVerifiedUser(appUrl);
-    await uploadToFakeS3(
+    await uploadToStorage(
       user.session,
       user.user.id,
       'list.md',
@@ -98,7 +98,7 @@ describe('materials endpoints contract', () => {
     expect(pathTraversal.status).toBe(400);
   });
 
-  it('returns the presigned contract shape with 15-minute expiry', async () => {
+  it('returns the upload-target contract shape with 15-minute expiry', async () => {
     const user = await registerVerifiedUser(appUrl);
     const response = await user.session.post('/api/materials/presign', {
       filename: 'contract.md',
@@ -108,16 +108,11 @@ describe('materials endpoints contract', () => {
     expect(response.status).toBe(201);
     const presigned = response.body as {
       materialId: string;
-      uploadUrl: string;
-      method: string;
-      headers: Record<string, string>;
       expiresAt: string;
     };
-    expect(Object.keys(presigned).sort()).toEqual(
-      ['expiresAt', 'headers', 'materialId', 'method', 'uploadUrl'].sort(),
-    );
-    expect(presigned.method).toBe('PUT');
-    expect(presigned.headers['Content-Type']).toBe('text/markdown');
+    // Constitution v2.4.0: no presigned URL — the browser uploads through the
+    // app route and `expiresAt` is the confirm-time upload window.
+    expect(Object.keys(presigned).sort()).toEqual(['expiresAt', 'materialId']);
     expect(Date.parse(presigned.expiresAt) - Date.now()).toBeGreaterThan(14.5 * 60 * 1000);
   });
 
@@ -135,7 +130,7 @@ describe('materials endpoints contract', () => {
   it('refuses confirming a foreign material id', async () => {
     const user = await registerVerifiedUser(appUrl);
     const other = await registerVerifiedUser(appUrl);
-    const foreign = await uploadToFakeS3(
+    const foreign = await uploadToStorage(
       other.session,
       other.user.id,
       'theirs.md',
@@ -149,7 +144,7 @@ describe('materials endpoints contract', () => {
 
   it('answers the ProcessingStatus shape on the status endpoint', async () => {
     const user = await registerVerifiedUser(appUrl);
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'status.md',
@@ -180,7 +175,7 @@ describe('materials list search, filters, and sort', () => {
   });
 
   it('searches filenames case-insensitively and treats the query literally', async () => {
-    await uploadToFakeS3(
+    await uploadToStorage(
       user.session,
       user.user.id,
       'Quarterly-Report-2026.md',
@@ -203,7 +198,7 @@ describe('materials list search, filters, and sort', () => {
   });
 
   it('filters by status group', async () => {
-    const ready = await uploadToFakeS3(
+    const ready = await uploadToStorage(
       user.session,
       user.user.id,
       'ready.md',
@@ -212,7 +207,7 @@ describe('materials list search, filters, and sort', () => {
     );
     await confirmMaterial(user.session, ready.materialId);
     await runPipeline({ materialId: ready.materialId });
-    await uploadToFakeS3(
+    await uploadToStorage(
       user.session,
       user.user.id,
       'awaiting.md',
@@ -285,14 +280,14 @@ describe('materials list search, filters, and sort', () => {
     // earlier tests through `user`, so this test brings a fresh budget.
     const sorter = await registerVerifiedUser(appUrl);
     // Byte order puts 'Banana' before 'apple'; collation must flip that.
-    await uploadToFakeS3(
+    await uploadToStorage(
       sorter.session,
       sorter.user.id,
       'apple.md',
       'text/markdown',
       TEXT_MATERIAL_BYTES,
     );
-    await uploadToFakeS3(
+    await uploadToStorage(
       sorter.session,
       sorter.user.id,
       'Banana.md',

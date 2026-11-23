@@ -3,7 +3,6 @@ import { route } from '@/lib/http/handler';
 import { created } from '@/lib/http/responses';
 import { errors } from '@/lib/http/errors';
 import { enforceUploadRateLimit } from '@/lib/security/upload-rate-limit';
-import { createPresignedUpload } from '@/lib/storage/s3';
 import { sanitizeFilename, presignSchema } from '@/lib/validation/materials';
 import { MaterialRepository, storageKeyFor } from '@/lib/db/repositories/material-repository';
 import { planLimitsFor, PLAN_FAILURE_CODES } from '@/lib/plans';
@@ -60,18 +59,10 @@ export const POST = route(
       materialId,
     );
 
-    const presigned = await createPresignedUpload({
-      key: storageKey,
-      contentType: body.declaredMime,
-      contentLength: body.sizeBytes,
-    });
-
     return created({
       materialId: material._id.toHexString(),
-      uploadUrl: presigned.uploadUrl,
-      method: presigned.method,
-      headers: presigned.headers,
-      expiresAt: presigned.expiresAt,
+      // The upload window: the confirm step rejects uploads after this instant.
+      expiresAt: uploadExpiresAt,
     });
   },
 );

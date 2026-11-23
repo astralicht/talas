@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestApp, stopTestApp } from '../helpers/app-server';
 import { registerVerifiedUser } from '../helpers/client';
 import { runPipeline, resetPipelineState, generateLessonForMaterial } from '../helpers/pipeline';
-import { confirmMaterial, uploadToFakeS3 } from '../helpers/storage-fake';
+import { confirmMaterial, uploadToStorage } from '../helpers/material-upload';
 import { TEXT_MATERIAL_BYTES } from '../fixtures/materials';
 
 let appUrl: string;
@@ -21,7 +21,7 @@ describe('cross-tenant isolation', () => {
     const userA = await registerVerifiedUser(appUrl);
     const userB = await registerVerifiedUser(appUrl);
 
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       userA.session,
       userA.user.id,
       'private.md',
@@ -74,8 +74,8 @@ describe('cross-tenant isolation', () => {
   it('scope-limits listings per user', async () => {
     const userA = await registerVerifiedUser(appUrl);
     const userB = await registerVerifiedUser(appUrl);
-    await uploadToFakeS3(userA.session, userA.user.id, 'a.md', 'text/markdown', TEXT_MATERIAL_BYTES);
-    await uploadToFakeS3(userB.session, userB.user.id, 'b.md', 'text/markdown', TEXT_MATERIAL_BYTES);
+    await uploadToStorage(userA.session, userA.user.id, 'a.md', 'text/markdown', TEXT_MATERIAL_BYTES);
+    await uploadToStorage(userB.session, userB.user.id, 'b.md', 'text/markdown', TEXT_MATERIAL_BYTES);
     await runPipeline();
 
     const listA = (await userA.session.get('/api/materials')).body as { data: Array<unknown> };

@@ -3,7 +3,7 @@ import { Types } from 'mongoose';
 import { MaterialRepository } from '@/lib/db/repositories/material-repository';
 import { ProcessingJobRepository } from '@/lib/db/repositories/processing-job-repository';
 import { LessonRepository } from '@/lib/db/repositories/lesson-repository';
-import { getObjectBytes } from '@/lib/storage/s3';
+import { getObjectBytes } from '@/lib/storage/object-store';
 import { extractDocument } from '@/lib/parsing/extract';
 import { LessonRevision } from '@/lib/db/models/lesson-revision';
 import { Lesson } from '@/lib/db/models/lesson';
@@ -305,6 +305,7 @@ export async function processGenerateLessonRequest(
   // Fetch and extract every source; per-source and total caps apply with
   // truncation notices so the model knows the material is partial.
   const sources: Array<{ filename: string; detectedMime: string; text: string }> = [];
+  const filenameByMaterialId = new Map<string, string>();
   let used = 0;
   for (const materialId of materialIds) {
     const material = await Material.findOne({
@@ -318,6 +319,7 @@ export async function processGenerateLessonRequest(
       await failRequest(claimed, 'material_unavailable', { materialId });
       return;
     }
+    filenameByMaterialId.set(materialId, material.originalFilename);
 
     try {
       const bytes = await getObjectBytes(material.storageKey);
@@ -342,8 +344,10 @@ export async function processGenerateLessonRequest(
     }
   }
 
-  // FR-008: stored image assets — the catalog lists the URLs the model may
-  // reference; image-only sources (no text at all) travel as vision parts.
+  // FR-008 + TODO step 12: stored image assets. `imageCatalog` stays the
+  // sanitization allowlist; `images` carries the per-figure context (source
+  // file, page, dimensions) a text-only model needs to judge relevance.
+  // Image-only sources (no text at all) additionally travel as vision parts.
   const assets = await MaterialAsset.find({
     userId: userObjectId,
     materialId: { $in: materialIds.map((id) => new Types.ObjectId(id)) },
@@ -354,18 +358,32 @@ export async function processGenerateLessonRequest(
   const imageCatalog = assets.map((asset) =>
     buildImageUrl(asset.materialId.toHexString(), asset._id.toHexString()),
   );
+  const images = assets.map((asset) => ({
+    url: buildImageUrl(asset.materialId.toHexString(), asset._id.toHexString()),
+    filename: filenameByMaterialId.get(asset.materialId.toHexString()) ?? 'stored figure',
+    pageNumber: asset.pageNumber ?? null,
+    width: asset.width ?? null,
+    height: asset.height ?? null,
+  }));
 
+  // Vision parts (FR-008) are for IMAGE-ONLY sources: when at least one
+  // source already carries machine-readable text, the catalog path covers the
+  // figures (the browser renders them) and attaching megabytes of base64 to
+  // text-only providers would only get the request rejected. A vision-capable
+  // provider could extend this later (TODO step 12 notes).
   const visionImages: Array<{ dataUrl: string }> = [];
-  for (const asset of assets) {
-    if (visionImages.length >= 10) break;
-    try {
-      const bytes = await getObjectBytes(asset.assetKey, 4_194_304);
-      const mime = asset.contentType.startsWith('image/') ? asset.contentType : 'image/png';
-      visionImages.push({
-        dataUrl: `data:${mime};base64,${bytes.toString('base64')}`,
-      });
-    } catch (error) {
-      requestLogger.warn({ err: error, assetId: asset._id }, 'Asset bytes unavailable; skipped');
+  if (sources.length === 0) {
+    for (const asset of assets) {
+      if (visionImages.length >= 10) break;
+      try {
+        const bytes = await getObjectBytes(asset.assetKey, 4_194_304);
+        const mime = asset.contentType.startsWith('image/') ? asset.contentType : 'image/png';
+        visionImages.push({
+          dataUrl: `data:${mime};base64,${bytes.toString('base64')}`,
+        });
+      } catch (error) {
+        requestLogger.warn({ err: error, assetId: asset._id }, 'Asset bytes unavailable; skipped');
+      }
     }
   }
 
@@ -375,6 +393,7 @@ export async function processGenerateLessonRequest(
       title,
       sources,
       imageCatalog,
+      images,
       visionImages,
       // The single-source fields stay required by the input type; multi-source
       // inputs ignore them.

@@ -8,7 +8,7 @@ import {
   resetPipelineState,
   runPipeline,
 } from '../../helpers/pipeline';
-import { uploadToFakeS3, confirmMaterial } from '../../helpers/storage-fake';
+import { uploadToStorage, confirmMaterial } from '../../helpers/material-upload';
 import { TEXT_MATERIAL_BYTES } from '../../fixtures/materials';
 import { processDeleteAccount } from '@/worker/processors/delete-account';
 import { User } from '@/lib/db/models/user';
@@ -45,7 +45,7 @@ describe('account lifecycle', () => {
 
   it('exports owned content as a downloadable archive', async () => {
     const user = await registerVerifiedUser(appUrl);
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'export-me.md',
@@ -67,7 +67,7 @@ describe('account lifecycle', () => {
 
   it('requests deletion, ends access immediately, and cascades cleanly', async () => {
     const user = await registerVerifiedUser(appUrl);
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'cascade-me.md',

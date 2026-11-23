@@ -289,7 +289,7 @@ paths:
               $ref: "#/components/schemas/PresignRequest"
       responses:
         "201":
-          description: Presigned upload created
+          description: Upload target created (the material record that awaits upload)
           content:
             application/json:
               schema:
@@ -795,20 +795,16 @@ components:
 
     PresignResponse:
       type: object
-      required: [materialId, uploadUrl, method, headers, expiresAt]
+      description: >-
+        Creates the material record that awaits upload. Since constitution
+        v2.4.0 the browser uploads through the app
+        (`PUT /api/materials/{materialId}/upload`) and the server writes the
+        bytes into storage — there is no presigned URL. `expiresAt` is the
+        upload window; confirm rejects uploads after it.
+      required: [materialId, expiresAt]
       properties:
         materialId:
           type: string
-        uploadUrl:
-          type: string
-          format: uri
-        method:
-          type: string
-          const: PUT
-        headers:
-          type: object
-          additionalProperties:
-            type: string
         expiresAt:
           type: string
           format: date-time

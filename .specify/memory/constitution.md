@@ -52,16 +52,16 @@ than 25 MB, and rejection messages MUST state the limit.
 Uploads MUST follow a two-step declare-then-commit flow. The presign step
 validates the declared type and size, applies quota and rate limits, and creates
 the tenant-scoped record; the upload step commits the bytes. The bytes MUST
-travel through the authenticated, tenant-scoped application upload endpoint
-whenever the object store is not directly reachable by the client (for example,
-behind the development tunnel), with the object write performed server-side and
-the store never exposed to browsers. A short-lived, single-object presigned URL
-that expires within 15 minutes, constrains content type and size, and is never
-publicly readable MAY be used for the upload step only where the object store is
-directly client-reachable. In either transport the upload step MUST verify
+travel through the authenticated, tenant-scoped application upload endpoint,
+with the object write performed server-side and the store never exposed to
+browsers. The upload step MUST verify
 ownership, an unexpired upload window, the declared status, and the exact
 declared byte size before storing, and the confirm step MUST still verify the
-stored object's size and magic-byte media type. Uploaded files MUST be
+stored object's size and magic-byte media type. Blob storage lives behind the
+storage seam (`lib/storage/object-store`); since v2.5.0 the bytes are stored
+in the application database itself via GridFS under the same tenant-scoped
+key scheme, so database backups cover them and no separate object-store
+service exists. Uploaded files MUST be
 malware-scanned before parsing, filenames MUST be sanitized, and file parsing
 MUST run in an isolated worker with hard CPU, memory, and timeout limits.
 Image-only PDF documents MUST be accepted: their pages are
@@ -343,5 +343,5 @@ this document. A violation MUST block merge until it is resolved or formally
 waived in writing by the maintainers with a stated rationale and expiry. The
 constitution MUST be reviewed at least quarterly and after any security incident.
 
-**Version**: 2.4.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-18
+**Version**: 2.5.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-20
 

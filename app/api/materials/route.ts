@@ -8,7 +8,7 @@ import { Material } from '@/lib/db/models/material';
 import { ProcessingJobRepository } from '@/lib/db/repositories/processing-job-repository';
 import { enqueueScanForMaterial } from '@/lib/jobs/material-jobs';
 import { enforceUploadRateLimit } from '@/lib/security/upload-rate-limit';
-import { headObject, getObjectBytes } from '@/lib/storage/s3';
+import { headObject, getObjectBytes } from '@/lib/storage/object-store';
 import { detectAndVerifyMime } from '@/lib/storage/verify-object';
 import { serializeMaterial } from '@/lib/http/serializers';
 import { auditEvents } from '@/lib/logging/audit-events';

@@ -296,3 +296,11 @@ overwriting the other.
   (`sourceMaterialIds[]`, 1–5 distinct). Idempotency is preserved per
   generation request (`generate_lesson_{requestId}` job ids) instead of per
   material.
+- **Presign-response amendment (TODO step 11, Nov 2026)**: the S3-compatible
+  object store is replaced by GridFS inside the application database
+  (constitution v2.5.0). `POST /api/materials/presign` keeps its
+  record-creating, quota- and rate-limit-enforcing role, but the response no
+  longer carries `uploadUrl`, `method`, or `headers` — there is no presigned
+  transport. The browser uploads through `PUT /api/materials/{materialId}/upload`
+  (server-side object write, constitution v2.4.0) and `expiresAt` remains as
+  the confirm-time upload window. Contract: openapi.yaml `PresignResponse`.

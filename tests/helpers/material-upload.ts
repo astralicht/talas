@@ -1,12 +1,9 @@
+import { putObject } from '@/lib/storage/object-store';
 import { storageKeyFor } from '@/lib/db/repositories/material-repository';
 import type { TestSession } from './client';
-import { fakeUpload } from './pipeline';
 
 export interface PresignView {
   materialId: string;
-  uploadUrl: string;
-  method: 'PUT';
-  headers: Record<string, string>;
   expiresAt: string;
 }
 
@@ -28,8 +25,12 @@ export interface ProcessingStatusView extends MaterialView {
   updatedAt: string;
 }
 
-/** Presigns, writes to the fake store with the presigned headers, returns the material id. */
-export async function uploadToFakeS3(
+/**
+ * Presigns a material and writes the fixture bytes into the (GridFS) object
+ * store the way the server-side upload route would, then returns the material
+ * id. Tests confirm through `confirmMaterial`.
+ */
+export async function uploadToStorage(
   session: TestSession,
   ownerId: string,
   filename: string,
@@ -46,7 +47,7 @@ export async function uploadToFakeS3(
   }
   const presigned = presign.body as PresignView;
   const storageKey = storageKeyFor(ownerId, presigned.materialId);
-  fakeUpload(storageKey, bytes, presigned.headers['Content-Type'] ?? contentType);
+  await putObject({ key: storageKey, body: bytes, contentType });
   return { materialId: presigned.materialId, storageKey, presigned };
 }
 

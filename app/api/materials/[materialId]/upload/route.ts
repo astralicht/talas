@@ -4,7 +4,7 @@ import { errors } from '@/lib/http/errors';
 import { materialIdParamsSchema } from '@/lib/validation/materials';
 import { MaterialRepository } from '@/lib/db/repositories/material-repository';
 import { MAX_UPLOAD_BYTES } from '@/lib/db/models/material';
-import { putObject } from '@/lib/storage/s3';
+import { putObject } from '@/lib/storage/object-store';
 
 export const dynamic = 'force-dynamic';
 

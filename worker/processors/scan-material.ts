@@ -1,10 +1,10 @@
 import { getLogger } from '@/lib/logging/logger';
 import { MaterialRepository } from '@/lib/db/repositories/material-repository';
 import { ProcessingJobRepository } from '@/lib/db/repositories/processing-job-repository';
-import { getObjectBytes } from '@/lib/storage/s3';
+import { getObjectBytes } from '@/lib/storage/object-store';
 import { scanBuffer } from '@/lib/security/clamav';
 import { enqueueParseForMaterial } from '@/lib/jobs/material-jobs';
-import { deleteObject } from '@/lib/storage/s3';
+import { deleteObject } from '@/lib/storage/object-store';
 import { failureMessage } from '@/lib/materials/failure-messages';
 import { auditEvents } from '@/lib/logging/audit-events';
 import type { ScanMaterialJob } from '@/lib/jobs/schemas';

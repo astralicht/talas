@@ -15,6 +15,7 @@ import {
   buildMultiSourceLessonPrompt,
   LESSON_PROMPT_VERSION,
   MAX_OUTPUT_TOKENS,
+  type LessonImageInput,
   type LessonSourceInput,
 } from './prompts';
 import { sanitizeGeneratedImages } from './images';
@@ -49,6 +50,10 @@ export interface GenerateLessonInput {
   title?: string;
   /** Stored image URLs the model may reference in its markdown (FR-008). */
   imageCatalog?: string[];
+  /** Stored figures with source context (TODO step 12); the prompt renders
+   *  this richer catalog, while `imageCatalog` stays the sanitization
+   *  allowlist. When omitted it is derived from `imageCatalog`. */
+  images?: LessonImageInput[];
   /** Image-only sources: images the model must see (vision parts). */
   visionImages?: Array<{ dataUrl: string }>;
 }
@@ -170,7 +175,7 @@ async function callModel(
     return generateObjectImpl({
       ...base,
       prompt,
-      imageCatalog: input.imageCatalog,
+      imageCatalog: catalogUrls(input),
       messages: [
         {
           role: 'user' as const,
@@ -189,27 +194,31 @@ async function callModel(
   return generateObjectImpl({
     ...base,
     prompt,
-    imageCatalog: input.imageCatalog,
+    imageCatalog: catalogUrls(input),
   });
 }
 
+function catalogUrls(input: GenerateLessonInput): string[] | undefined {
+  if (input.imageCatalog && input.imageCatalog.length > 0) return input.imageCatalog;
+  if (input.images && input.images.length > 0) return input.images.map((image) => image.url);
+  return undefined;
+}
+
 function buildSourcePrompt(input: GenerateLessonInput): string {
+  // The richer figure list (with source context) feeds the prompt; the bare
+  // URL list stays available as the sanitization allowlist.
+  const images =
+    input.images ??
+    catalogUrls(input)?.map((url) => ({ url, filename: 'stored figure' }));
   const prompt =
     input.sources && input.sources.length > 0
-      ? buildMultiSourceLessonPrompt({ title: input.title, sources: input.sources })
-      : buildLessonPrompt(input);
-
-  if (input.imageCatalog && input.imageCatalog.length > 0) {
-    const listing = input.imageCatalog
-      .map((url, index) => `- Figure ${index + 1}: ${url}`)
-      .join('\n');
-    return [
-      prompt,
-      '',
-      'Stored figures you may reference in your markdown (use these exact URLs only):',
-      listing,
-    ].join('\n');
-  }
+      ? buildMultiSourceLessonPrompt({ title: input.title, sources: input.sources, images })
+      : buildLessonPrompt({
+          filename: input.filename,
+          detectedMime: input.detectedMime,
+          text: input.text,
+          images,
+        });
   return prompt;
 }
 
@@ -263,8 +272,8 @@ export async function generateLesson(
         : parsed.lesson;
 
       // FR-008: only catalog URLs may survive into stored lesson content.
-      const markdown = input.imageCatalog
-        ? sanitizeGeneratedImages(lessonToMarkdown(lesson), input.imageCatalog)
+      const markdown = catalogUrls(input)
+        ? sanitizeGeneratedImages(lessonToMarkdown(lesson), catalogUrls(input)!)
         : lessonToMarkdown(lesson);
 
       return {

@@ -4,7 +4,7 @@ import { route, CORRELATION_HEADER } from '@/lib/http/handler';
 import { errors } from '@/lib/http/errors';
 import { MaterialRepository } from '@/lib/db/repositories/material-repository';
 import { sanitizeFilename } from '@/lib/validation/materials';
-import { getObjectBytes } from '@/lib/storage/s3';
+import { getObjectBytes } from '@/lib/storage/object-store';
 import { auditEvents } from '@/lib/logging/audit-events';
 import { getCorrelationId } from '@/lib/logging/correlation';
 

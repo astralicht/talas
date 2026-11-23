@@ -53,8 +53,6 @@ describe('lesson model candidates', () => {
       JWT_ACCESS_SECRET: 'prod-access-secret-that-is-long-enough',
       JWT_REFRESH_SECRET: 'prod-refresh-secret-that-is-long-enough',
       CSRF_SECRET: 'prod-csrf-secret-that-is-long-enough',
-      S3_ACCESS_KEY_ID: 'prod-s3-key',
-      S3_SECRET_ACCESS_KEY: 'prod-s3-secret',
       AI_PROVIDER: 'opengo',
       OPENCODE_API_KEY: '',
     };

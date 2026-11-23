@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestApp, stopTestApp } from '../../helpers/app-server';
 import { registerVerifiedUser, type RegisteredUser } from '../../helpers/client';
-import { confirmMaterial, materialStatus, uploadToFakeS3 } from '../../helpers/storage-fake';
+import { confirmMaterial, materialStatus, uploadToStorage } from '../../helpers/material-upload';
 import { runGenerationRequest, runPipeline, resetPipelineState } from '../../helpers/pipeline';
 import { TEXT_MATERIAL_BYTES } from '../../fixtures/materials';
 import { Types } from 'mongoose';
@@ -87,7 +87,7 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
   it('frees a slot when a material is deleted', async () => {
     const user = await registerVerifiedUser(appUrl);
     await seedMaterials(user, 4);
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'real.md',
@@ -137,7 +137,7 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
 
   it('re-checks the quota at confirm so presign races cannot overrun it', async () => {
     const user = await registerVerifiedUser(appUrl);
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'racing.md',
@@ -158,7 +158,7 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
 
   it('fails materials over the plan character cap with split guidance', async () => {
     const user = await registerVerifiedUser(appUrl);
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'oversized.md',
@@ -190,7 +190,7 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
 
   it('informs first, then auto-purges dead oversized uploads on a blocked split upload', async () => {
     const user = await registerVerifiedUser(appUrl);
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'oversized.md',
@@ -224,7 +224,7 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
 
   it('limits lesson storage and surfaces the daily allowance reset', async () => {
     const user = await registerVerifiedUser(appUrl);
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'single.md',
@@ -253,7 +253,7 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
 
   it('separates lesson storage from the daily generation allowance', async () => {
     const user = await registerVerifiedUser(appUrl);
-    const firstUpload = await uploadToFakeS3(
+    const firstUpload = await uploadToStorage(
       user.session,
       user.user.id,
       'daily-one.md',
@@ -262,7 +262,7 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
     );
     await confirmMaterial(user.session, firstUpload.materialId);
     await runPipeline({ materialId: firstUpload.materialId });
-    const secondUpload = await uploadToFakeS3(
+    const secondUpload = await uploadToStorage(
       user.session,
       user.user.id,
       'daily-two.md',
@@ -310,7 +310,7 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
 
   it('refunds the allowance when a generation fails terminally', async () => {
     const user = await registerVerifiedUser(appUrl);
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'doomed.md',
@@ -348,7 +348,7 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
 
   it('exempts regeneration from the daily allowance', async () => {
     const user = await registerVerifiedUser(appUrl);
-    const upload = await uploadToFakeS3(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
       'regen.md',
