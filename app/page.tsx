@@ -4,6 +4,7 @@ import { FileText, PencilLine, Upload } from 'lucide-react';
 import { getSessionUser } from '@/lib/auth/session';
 import { buttonVariants } from '@/components/ui/button';
 import { Logo, Sparkle } from '@/components/ui/logo';
+import { ThemeToggle } from '@/components/auth/theme-toggle';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,9 +43,12 @@ export default async function HomePage() {
           <Link href="/" aria-label="Talas home">
             <Logo className="h-7 w-auto" />
           </Link>
-          <Link href="/login" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-            Sign in
-          </Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <ThemeToggle />
+            <Link href="/login" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+              Sign in
+            </Link>
+          </div>
         </header>
 
         <section className="relative flex flex-col items-center gap-6 py-16 text-center sm:py-24">
