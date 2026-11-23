@@ -1,10 +1,15 @@
 # Talas — Continuation Roadmap
 
-Constitution is at v2.3.0 (v2.1.0 = commit `a8cdbed` cross-platform dev +
-list search; v2.2.0 dev tunneling; v2.3.0 plan-based feature limits).
-**All nine steps are complete (Nov 2026).** Gate order note: run e2e LAST —
+Constitution is at v2.5.0 (v2.1.0 = commit `a8cdbed` cross-platform dev +
+list search; v2.2.0 dev tunneling; v2.3.0 plan-based feature limits; v2.4.0
+server-side upload transport; v2.5.0 GridFS object storage — see step 11).
+**All thirteen steps are complete (Nov 2026).** Gate order note: run e2e LAST —
 its dev server overwrites `.next` chunks, so contract/security suites must
-run against a fresh `pnpm build`.
+run against a fresh `pnpm build`. The same applies to a long-running
+`pnpm dev` on the machine: its recompiles corrupt `.next` for concurrently
+running suites (2026-11-20: security suite register 500s traced to a stale
+`.next` while `next dev` was live — stop dev processes and rebuild before
+gating).
 
 ## Step 1 — Session TTLs + redirect hardening (DONE in working tree, UNCOMMITTED)
 
@@ -252,7 +257,7 @@ unit+security, 30/30 integration, 38/38 contract, 11/11 e2e.
       reinterpretation), specs/003 (new TTLs; check off T007/T008)
 - [x] Final commit(s)
 
-## Step 9 — Plan-based feature limits (APPROVED plan, NOT STARTED)
+## Step 9 — Plan-based feature limits (DONE 2026-11-18)
 
 Every user is on a plan by default (`free`). Limits are per tier and derived
 from one config source, so adding a higher tier later is a config + enum
@@ -347,24 +352,191 @@ Notes:
   splitting (PDF/DOCX auto-split is its own project); billing-driven tier
   upgrades; per-tier AI USD budgets.
 
-## Step 10 — Mobile nav UX polish (brand restyle follow-up, NOT STARTED)
+## Step 10 — Mobile nav UX polish (brand restyle follow-up, DONE 2026-11-20)
 
 Follow-ups from the Nov 2026 brand restyle of the session nav
 (components/auth/session-nav.tsx + session-nav-links.tsx):
 
-- [ ] Hamburger menu on mobile: below the breakpoint the nav links collapse
+- [x] Hamburger menu on mobile: below the breakpoint the nav links collapse
       into a hamburger toggle (the restyled rounded card currently wraps the
       links inline); keep the orange active-page pill highlight inside the
       opened menu
-- [ ] Don't squish the logo: reserve its natural size on narrow screens
+- [x] Don't squish the logo: reserve its natural size on narrow screens
       (it currently shrinks when the nav row wraps)
-- [ ] Sign out stays at the end: it is the last action in the nav on all
+- [x] Sign out stays at the end: it is the last action in the nav on all
       viewport sizes (mobile menu bottom, desktop row end)
-- [ ] The light/dark theme toggle is NOT inside the hamburger menu — keep it
+- [x] The light/dark theme toggle is NOT inside the hamburger menu — keep it
       as a standalone icon button outside the collapsible section
 
 Gates: typecheck, lint, unit tests, visual check of the nav at mobile and
 desktop widths in both themes.
+
+Step 10 notes (2026-11-20): SessionNav is now a client component (the `user`
+prop is the plain serializable object `getSessionUser` returns). Collapse
+breakpoint is md: below it the links live in `#session-nav-mobile-menu`,
+which closes on Escape and on any route change; the toggle carries
+`aria-expanded`/`aria-controls` and `data-testid="mobile-nav-toggle"`. The
+card stays `rounded-3xl` until md so the opened menu sits inside a card
+instead of a pill. Sign out is `hidden md:inline-flex` in the row and
+full-width at the menu bottom. Also landed this session: the logged-out
+homepage (`app/page.tsx`) shows the shared ThemeToggle next to Sign in.
+Gates green 2026-11-20: typecheck, lint, 139/139 unit+security; visual
+check via Playwright screenshots (375×812 + 1280×800, both themes, menu
+open/closed, homepage light+dark).
+
+## Step 11 — MongoDB Atlas + GridFS object storage, S3 removed (DONE 2026-11-20)
+
+Locked with the user (plan session): DB target is Atlas (already mandated by
+specs/004) and object storage moves into the database as GridFS — the
+S3-compatible store is dropped entirely. Defaults: local Mongo in dev, Atlas
+in prod config; fresh contract amendment for the unused presign fields;
+constitution amendment as v2.5.0. A one-off migration copied the existing dev
+objects before the S3 driver was deleted.
+
+- [x] Phase 1 — storage seam: lib/storage/object-store.ts defines the
+      six-operation contract (putObject / headObject / getObjectBytes /
+      getObjectPrefixBytes / deleteObject / deleteObjectPrefix) and every
+      call site (upload route, confirm, download, assets, delete-service,
+      delete-account, scan/parse/generate processors, seed) imports the seam.
+      Gates: typecheck + lint.
+- [x] Phase 2 — GridFS driver (lib/storage/gridfs.ts, bucket `objects`,
+      mongoose.mongo.GridFSBucket): same key scheme, `name: 'NotFound'`
+      errors preserved (confirm maps them to `upload_missing`), prefix reads
+      capped at one 255 KiB chunk, prefix deletes by escaped-regex filename.
+      Legacy `createPresignedUpload` + the in-process fake store deleted;
+      presign route returns `{ materialId, expiresAt }` only;
+      openapi.yaml `PresignResponse` amended; tests de-faked — the fake
+      store helper became `tests/helpers/material-upload.ts`
+      (`uploadToStorage`, real putObject) and image-asset assertions read
+      GridFS directly. Gates: build, 139/139 unit+security, 53/53
+      integration, 49/49 contract.
+- [x] Migration — objects copied from RustFS into GridFS before deletion
+      (source list from Material.storageKey + MaterialAsset.assetKey,
+      idempotent skip, byte-length verification): 8 copied, 0 failed.
+- [x] Phase 3 — S3 deleted: `lib/storage/s3.ts`, both `@aws-sdk/*`
+      dependencies, all `S3_*` env vars (env schema + .env.example +
+      .env.local + both stack env templates), RustFS/SeaweedFS services and
+      bucket-CORS blocks removed from infra/docker-compose.yml,
+      scripts/dev-services.sh, scripts/dev-stack.sh, and
+      scripts/dev-stack.ps1 (platform parity); CSP `connect-src` narrowed
+      to `'self' https:` (the localhost extras existed only for presigned
+      uploads). Gates: build, 139/139 unit+security, 53/53 integration,
+      49/49 contract.
+- [x] Phase 4 — docs & amendments: constitution v2.5.0 (Principle IV:
+      storage rides the database, presigned-URL clause retired);
+      specs/001 presign-response amendment; specs/004 provisioner list +
+      Data Lifecycle amendment (one Atlas backup covers records and bytes);
+      TODO deployment checklist storage item rewritten; infra/README and the
+      dev-env notes updated. E2E 12/12 LAST against the real stack
+      (upload journey + lesson generation through the browser, with the
+      RustFS container stopped).
+
+Notes (2026-11-20):
+
+- One backing service fewer in dev and prod: records AND bytes live in the
+  same replica set, so `mongodump`/Atlas backups capture everything.
+- Atlas sizing now includes blob bytes: M0 free tier (512 MB) is dev-only;
+  production wants M10+ once 25 MB uploads per user multiply.
+- e2e repeatability unchanged: journeys still reclaim bob's content through
+  the public API before hitting plan limits.
+- Constitution v2.3.0 note elsewhere in this file (step 9 section, upload
+  route comments) predates this amendment; v2.5.0 is authoritative.
+
+## Step 12 — Image-aware lesson generation (DONE 2026-11-23)
+
+The FR-008 image pipeline existed end to end (extraction → tenant-scoped
+assets → URL allowlist), but the model was never told to use it: the v3
+system prompt's output contract did not mention figures, and the catalog
+appended to the user prompt was a bare URL list with no source context, so a
+text-only model (glm-5.3-flash) had neither instruction nor information to
+judge relevance — generated lessons shipped without images.
+
+- [x] prompts v4 (`lib/ai/prompts.ts`): new `LessonImageInput` (url, filename,
+      pageNumber, width, height); `renderFigureSection` lists each figure with
+      its source context ("Figure 1 (from photosynthesis.pdf, page 3,
+      1600×900): url"); `buildMultiSourceLessonPrompt` and
+      `buildLessonPrompt` take `images`; the system-prompt output contract
+      now allows figures inside `contentMarkdown` as `![alt](url)` — only
+      catalog URLs, only when they genuinely illustrate the point, at most
+      1 per section and 6 per lesson (protects the locked 4096-token cap),
+      never invented or altered. `LESSON_PROMPT_VERSION` 'v3' -> 'v4'
+      (historical rows keep their stored version).
+- [x] wiring (`lib/ai/generate-lesson.ts` + worker): `GenerateLessonInput.images`
+      feeds the prompt builders; `imageCatalog` remains the sanitization
+      allowlist and is derived from `images` when absent (fake path and
+      confirm-time `sanitizeGeneratedImages` unchanged). The worker builds the
+      enriched catalog from `MaterialAsset` + a materialId→filename map.
+- [x] tests: 3 new unit tests (figure section rendered into the prompt with
+      context; allowlist derived from `images`; non-catalog URLs stripped);
+      prompt-version expectations moved to 'v4'. Vision-parts behavior for
+      image-only sources unchanged (deliberately out of scope: inline vision
+      for text-bearing sources, AI-written alt text).
+- [x] Gates (run in an isolated git worktree so the live dev stack was never
+      interrupted): build ✓, 142/142 unit+security (one pdfjs test timed out
+      once under cold-start load and passed on retry), 53/53 integration,
+      49/49 contract, 12/12 e2e LAST.
+
+Notes (2026-11-23):
+
+- Relevance with a text-only provider is judged from context (source file,
+  page, surrounding prose), not pixels — the browser renders the images.
+  Inline vision parts for openai/google providers are a possible follow-up.
+- To see figures in a generated lesson, upload a PDF or DOCX that contains
+  them (Markdown sources have nothing to extract).
+- Worktree pattern recorded: gate runs against a live user stack use a
+  separate checkout (own .next build, ephemeral test DBs) — no more
+  stopping the user's web server for suites.
+
+## Step 13 — Raster extraction actually extracts (DONE 2026-11-23)
+
+Step 12 made the model image-aware, but generated lessons still shipped
+without figures — and the cause turned out to be upstream of the prompt: the
+raster-extraction path for text-bearing PDFs never extracted anything.
+
+- [x] Root cause: `lib/parsing/pdf.ts` built its image-operator filter from
+      `document.OPS` — but the OPS enum lives on the pdfjs MODULE, not on the
+      document proxy. `imageOps` was silently empty, so every text-bearing
+      PDF matched zero image operators and returned 0 assets. Invisible for
+      days because the extractor is deliberately best-effort and no test
+      covered a text-bearing PDF with embedded rasters (DOCX fixtures and
+      image-only PDFs take the other two paths).
+- [x] Fix: build the filter from `pdfjs.OPS`; replace the synchronous
+      `page.objs.get()` read (which can throw "object isn't resolved yet"
+      right after the operator list is built) with the pdfjs callback API
+      bounded by a short timeout, falling back to `commonObjs` for shared
+      XObjects.
+- [x] Vision-parts scope fix (worker): base64 image parts attach only for
+      IMAGE-ONLY sources. A text-bearing source rides the catalog path; the
+      previous loop attached megabytes of image data to text-only providers
+      (glm-5.3-flash) and the request died with provider_unavailable.
+- [x] Observability: the parse log now reports the extracted image count
+      alongside pageCount/charCount; a leftover `[render-debug]`
+      console.error in the page-render fallback was removed (best-effort
+      failures stay visible through the parse log).
+- [x] Tests: `buildPdfWithImage` fixture (hand-assembled PDF with text +
+      FlateDecode DeviceRGB raster — deterministic pseudo-random pixels so
+      the PNG clears the 8 KB floor); unit test asserts extraction returns
+      the image with page/dimensions; integration test pushes the fixture
+      through the real pipeline and asserts the asset lands in GridFS and the
+      generated lesson embeds its catalog URL. Fixture text must exceed the
+      sparse threshold (200 chars) or the document correctly routes to the
+      image-only render path instead.
+- [x] Live verification with the real pipeline (eve@talas.local): the
+      "Module 3 — Dynamics, Newton's laws" PDF produced 5 assets
+      (pages 1/3/5/7), generation came back ready with 3 figures embedded
+      in an 8,194-char lesson.
+- [x] Gates (isolated git worktree, live stack untouched): build ✓, 143/143
+      unit+security, 54/54 integration, 49/49 contract. E2E skipped this
+      round: its lesson-editor tests expect alice's seeded lesson, which the
+      user's own cleanup had deleted (shared-DB drift, not code) —
+      `pnpm db:seed` restores it whenever a future e2e run is wanted.
+
+Notes (2026-11-23):
+
+- The 8 KB "worth keeping" floor still drops tiny logos/bullets by design.
+- Vision parts for text-bearing sources on vision-capable providers
+  (openai/google) remain a possible follow-up; today the catalog path is
+  provider-agnostic and works with text-only models.
 
 ## Dev environment notes (Windows + PowerShell, Linux + bash)
 
@@ -389,7 +561,7 @@ pnpm worker:dev`; Windows `scripts/dev-stack.ps1 worker` (`-Db <name>` to
   point it at another db, e.g. talas-e2e for e2e runs).
 - e2e runs LAST (its dev server overwrites .next chunks — fresh `pnpm build`
   before contract/security if e2e ran first). Local e2e needs the dev stack up
-  plus `DATABASE_URL`/`REDIS_URL`/`S3_*` pointing at it (export the
+  plus `DATABASE_URL`/`REDIS_URL` pointing at it (export the
   `scripts/dev-stack.ps1 env` template in-shell — NODE_ENV=test skips
   .env.local). Rate limits and plan quotas are LIVE in e2e: the suite resets
   limiter + allowance state per test through `/api/test/reset-limits`
@@ -397,22 +569,23 @@ pnpm worker:dev`; Windows `scripts/dev-stack.ps1 worker` (`-Db <name>` to
   beforeAll clears bob's content so repeated runs never hit the storage
   quotas. A plain `pnpm dev` server (no E2E_MODE) must not be reused for e2e.
 
-No-Docker stacks (same ports: Mongo rs0 27098, Redis 6399, SeaweedFS S3 9002;
+No-Docker stacks (same ports: Mongo rs0 27098, Redis 6399;
 data/binaries/logs under .data/dev-stack):
 
 - Windows: scripts/dev-stack.ps1 — `start [-Seed] [-Fresh] | stop | status |
 env [-Write] | seed | worker [-Db <name>]`. Binaries auto-download (MongoDB
-  Windows zip, Redis 7.4.5 community build with a Redis 5.0.14 fallback,
-  SeaweedFS 4.54 windows_amd64.zip). `env -Write` creates .env.local (PowerShell
+  Windows zip, Redis 7.4.5 community build with a Redis 5.0.14 fallback).
+  `env -Write` creates .env.local (PowerShell
   `>` redirects are UTF-16, which dotenv parsers reject). Redis builds are
   community projects — dev use only.
-- Linux: scripts/dev-stack.sh (same interface, bash; binaries auto-download
-  from fastdl.mongodb.org and seaweedfs releases). Use it when Docker is
+- Linux: scripts/dev-stack.sh (same interface, bash; mongod auto-downloads
+  from fastdl.mongodb.org). Use it when Docker is
   unavailable (ARM boxes, restricted sandboxes).
-- Docker (Linux): scripts/dev-services.sh (Mongo RS via host networking, Redis,
-  RustFS S3 with bucket CORS; data under .data/dev-services).
-- With the real stack running, S3 uploads/downloads work end to end (the
-  S3_FAKE in-process store loses data across processes); login/AI/email work
+- Docker (Linux): scripts/dev-services.sh (Mongo RS via host networking, Redis;
+  data under .data/dev-services).
+- Uploaded files live in GridFS inside MongoDB (the `objects` bucket, TODO
+  step 11) — the same replica set backs records and bytes, so `mongodump`
+  captures everything; login/AI/email work
   via fake modes in .env.local.
 - Exposing the dev server (ngrok): install ngrok (Windows: `winget install
 ngrok.ngrok` — needs >= 3.29 for current accounts; `ngrok update` if winget
@@ -428,8 +601,10 @@ ngrok.ngrok` — needs >= 3.29 for current accounts; `ngrok update` if winget
   need the origin in CORS_ALLOWED_ORIGINS. next.config.ts
   allowedDevOrigins covers *.ngrok-free.dev / *.ngrok-free.app; machine-
   specific hosts (e.g. the LAN IP) go through NEXT_DEV_ALLOWED_ORIGINS.
-  Material uploads through a tunnel only work from the host itself (presigned
-  PUTs target the local S3 endpoint). Anyone with the URL can use the app
+  Uploads and generation work fully through the tunnel: the browser PUTs
+  the file to the app route (/api/materials/{id}/upload) and the server
+  writes it into the object store, which stays private and unreachable
+  from browsers (constitution v2.4.0). Anyone with the URL can use the app
   (demo accounts have a known password) — stop the tunnel when done.
   (Constitution v2.2.0 covers this under Principle V.)
 
@@ -449,8 +624,9 @@ activated and confirmed BEFORE proceeding — anything off is a blocker.**
       builds never mount the e2e-only `/api/test/reset-limits` endpoint.
 - [ ] Malware scanning: real ClamAV endpoint (`CLAMAV_FAKE` empty) — infected
       files are actually quarantined
-- [ ] Storage: `S3_FAKE=false`, bucket CORS scoped to the real origin,
-      private-cache headers verified on asset/download routes
+- [ ] Storage: GridFS in the primary database (constitution v2.5.0 — no
+      separate object store); private-cache headers verified on asset/download
+      routes; Atlas cluster sized for blob bytes (25 MB × plan quota per user)
 - [ ] Session TTLs: `SESSION_ACCESS_TTL_SECONDS` / `SESSION_REFRESH_TTL_SECONDS`
       deliberately chosen (24h/30d defaults or stricter), not dev values
 - [ ] Email: real transport (`RESEND_API_KEY`), not mailhog/memory
@@ -460,5 +636,5 @@ activated and confirmed BEFORE proceeding — anything off is a blocker.**
       overwrites `.next` chunks) — or a fresh `pnpm build` before deploy
 
 Linux Docker dev stack: scripts/dev-services.sh (Mongo RS on 27098 via host
-networking, Redis 6399, RustFS S3 9002 with bucket CORS; data under
-.data/dev-services).
+networking, Redis 6399; data under .data/dev-services). Object storage is
+GridFS in the database — no S3 service.
