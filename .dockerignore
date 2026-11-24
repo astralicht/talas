@@ -1,0 +1,27 @@
+# Dependencies are installed inside the image from the lockfile — shipping the
+# host's node_modules would overwrite the frozen install (native binaries are
+# platform-specific).
+node_modules
+
+# Build outputs and caches.
+.next
+coverage
+tsconfig.tsbuildinfo
+
+# Local state, VCS, and test artifacts that must never enter an image.
+.git
+.github
+.data
+.opencode
+.specify
+test-results
+playwright-report
+
+# Secrets: images must never contain credentials (constitution FR-3).
+.env
+.env.local
+.env.*.local
+
+# Logs and scratch files.
+*.log
+*.tsbuildinfo
