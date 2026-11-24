@@ -9,8 +9,10 @@ import {
   ACCOUNT_DELETION_QUEUE,
   LESSON_GENERATION_QUEUE,
   MATERIAL_QUEUE,
+  QUIZ_GENERATION_QUEUE,
   parseJobPayload,
   parseLessonRequestJob,
+  parseQuizJob,
   type DeleteAccountJob,
   type GenerateLessonJob,
   type ParseMaterialJob,
@@ -24,6 +26,7 @@ import {
   processGenerateLesson,
   processGenerateLessonRequest,
 } from './processors/generate-lesson';
+import { processGenerateQuiz } from './processors/generate-quiz';
 
 const logger = getLogger().child({ service: 'talas-worker' });
 
@@ -61,6 +64,16 @@ async function handleLessonGeneration(job: Job): Promise<void> {
   await runWithCorrelation({ correlationId: payload.correlationId, userId: payload.userId }, async () => {
     logger.info({ jobId: job.id, jobType: payload.type }, 'Worker job started');
     await withJobLimits(payload.type, () => processGenerateLessonRequest(payload));
+    logger.info({ jobId: job.id, jobType: payload.type }, 'Worker job finished');
+  });
+}
+
+/** Quiz jobs run up to ten sequential batches — a 10-minute ceiling, not the default 2. */
+async function handleQuizGeneration(job: Job): Promise<void> {
+  const payload = parseQuizJob(job.data);
+  await runWithCorrelation({ correlationId: payload.correlationId, userId: payload.userId }, async () => {
+    logger.info({ jobId: job.id, jobType: payload.type }, 'Worker job started');
+    await withJobLimits(payload.type, () => processGenerateQuiz(payload), 10 * 60 * 1000);
     logger.info({ jobId: job.id, jobType: payload.type }, 'Worker job finished');
   });
 }
@@ -124,6 +137,35 @@ async function finalizeExhaustedGenerationRequest(job: Job): Promise<void> {
   }
 }
 
+/** Marks a quiz-generation request failed once BullMQ retries are exhausted. */
+async function finalizeExhaustedQuizJob(job: Job): Promise<void> {
+  const data = job.data as { type?: string; quizId?: string; userId?: string };
+  if (!data || data.type !== 'generate_quiz' || !data.quizId || !data.userId) return;
+
+  const attemptsConfigured = job.opts?.attempts ?? 1;
+  if (attemptsConfigured > 1 && job.attemptsMade < attemptsConfigured) return;
+
+  const { Quiz } = await import('@/lib/db/models/quiz');
+  const stillOpen = await Quiz.findOneAndUpdate(
+    {
+      _id: data.quizId,
+      userId: data.userId,
+      status: { $in: ['queued', 'processing'] },
+    },
+    {
+      $set: {
+        status: 'failed',
+        leaseUntil: null,
+        lastErrorCode: 'internal_error',
+        lastErrorMessage: 'The generation worker could not finish. Request the quiz again.',
+      },
+    },
+  ).exec();
+  if (stillOpen) {
+    logger.warn({ quizId: data.quizId }, 'Quiz finalized as failed');
+  }
+}
+
 let workers: Worker[] = [];
 
 export async function startWorker(): Promise<Worker[]> {
@@ -138,6 +180,10 @@ export async function startWorker(): Promise<Worker[]> {
       connection,
       concurrency: 1,
     }),
+    new Worker(QUIZ_GENERATION_QUEUE, handleQuizGeneration, {
+      connection,
+      concurrency: 1,
+    }),
   ];
 
   for (const worker of workers) {
@@ -146,6 +192,10 @@ export async function startWorker(): Promise<Worker[]> {
       if (!job) return;
       if (job.queueName === LESSON_GENERATION_QUEUE) {
         await finalizeExhaustedGenerationRequest(job).catch(() => undefined);
+        return;
+      }
+      if (job.queueName === QUIZ_GENERATION_QUEUE) {
+        await finalizeExhaustedQuizJob(job).catch(() => undefined);
         return;
       }
       await finalizeExhaustedMaterialJob(job).catch(() => undefined);

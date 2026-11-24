@@ -64,10 +64,19 @@ export const jobPayloadSchema = z.discriminatedUnion('type', [
   deleteAccountJobSchema,
 ]);
 
+/** Explicit quiz-generation request (TODO step 14); its own queue/worker. */
+export const generateQuizJobSchema = z.object({
+  type: z.literal('generate_quiz'),
+  quizId: objectIdSchema,
+  userId: objectIdSchema,
+  correlationId: z.string().min(1),
+});
+
 export type ScanMaterialJob = z.infer<typeof scanMaterialJobSchema>;
 export type ParseMaterialJob = z.infer<typeof parseMaterialJobSchema>;
 export type GenerateLessonJob = z.infer<typeof generateLessonJobSchema>;
 export type GenerateLessonRequestJob = z.infer<typeof generateLessonRequestJobSchema>;
+export type GenerateQuizJob = z.infer<typeof generateQuizJobSchema>;
 export type DeleteAccountJob = z.infer<typeof deleteAccountJobSchema>;
 export type MaterialJob = z.infer<typeof materialJobSchema>;
 export type JobPayload = z.infer<typeof jobPayloadSchema>;
@@ -75,6 +84,7 @@ export type JobPayload = z.infer<typeof jobPayloadSchema>;
 export const MATERIAL_QUEUE = 'material-processing';
 export const ACCOUNT_DELETION_QUEUE = 'account-deletion';
 export const LESSON_GENERATION_QUEUE = 'lesson-generation';
+export const QUIZ_GENERATION_QUEUE = 'quiz-generation';
 
 export function parseJobPayload(value: unknown): JobPayload {
   return jobPayloadSchema.parse(value);
@@ -83,6 +93,16 @@ export function parseJobPayload(value: unknown): JobPayload {
 /** Parses an explicit lesson-generation request job (its own queue/worker). */
 export function parseLessonRequestJob(value: unknown): GenerateLessonRequestJob {
   return generateLessonRequestJobSchema.parse(value);
+}
+
+/** Parses an explicit quiz-generation request job (its own queue/worker). */
+export function parseQuizJob(value: unknown): GenerateQuizJob {
+  return generateQuizJobSchema.parse(value);
+}
+
+/** Explicit quiz-generation jobs are idempotent per quiz id. */
+export function generateQuizJobIdFor(quizId: string): string {
+  return `generate_quiz_${quizId}`;
 }
 
 /**

@@ -26,6 +26,8 @@ export type {
 } from './lesson-generation-request';
 export { LessonRevision, REVISION_AUTHOR_TYPES } from './lesson-revision';
 export type { ILessonRevision, LessonRevisionDocument, RevisionAuthorType } from './lesson-revision';
+export { Quiz, QUIZ_STATUSES, QUIZ_ITEM_COUNTS, MAX_LESSONS_PER_QUIZ } from './quiz';
+export type { IQuiz, QuizDocument, QuizStatus, QuizItemCount, IQuizQuestion } from './quiz';
 export { AuditEvent, AUDIT_EVENT_TYPES } from './audit-event';
 export type { IAuditEvent, AuditEventDocument, AuditEventType } from './audit-event';
 export { AccountDeletionRequest, DELETION_STATUSES } from './account-deletion-request';

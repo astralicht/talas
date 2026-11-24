@@ -2,6 +2,7 @@ import type { IMaterial } from '@/lib/db/models/material';
 import type { ILesson } from '@/lib/db/models/lesson';
 import type { ILessonGenerationRequest } from '@/lib/db/models/lesson-generation-request';
 import type { ILessonRevision } from '@/lib/db/models/lesson-revision';
+import type { IQuiz } from '@/lib/db/models/quiz';
 
 export interface MaterialView {
   id: string;
@@ -92,6 +93,53 @@ export function serializeLessonGenerationRequest(
     lessonId: request.lessonId ? request.lessonId.toHexString() : null,
     lastErrorCode: request.lastErrorCode,
     lastErrorMessage: request.lastErrorMessage,
+  };
+}
+
+export interface QuizView {
+  id: string;
+  status: string;
+  title: string;
+  itemCount: number;
+  sourceLessonIds: string[];
+  createdAt: string;
+  lastErrorCode: string | null;
+  lastErrorMessage: string | null;
+}
+
+export interface QuizReadyView extends QuizView {
+  /**
+   * Questions without the answer key — `correctIndex` and `explanation`
+   * deliberately stay out of every API response until a later step adds
+   * answer-reveal/scored modes (TODO step 14).
+   */
+  questions: Array<{
+    question: string;
+    options: string[];
+  }>;
+}
+
+export function serializeQuiz(quiz: IQuiz): QuizView {
+  return {
+    id: quiz._id.toHexString(),
+    status: quiz.status,
+    title: quiz.title,
+    itemCount: quiz.itemCount,
+    sourceLessonIds: quiz.sourceLessonIds.map((id) => id.toHexString()),
+    createdAt: quiz.createdAt.toISOString(),
+    lastErrorCode: quiz.lastErrorCode,
+    lastErrorMessage: quiz.lastErrorMessage,
+  };
+}
+
+/** Ready-quiz view with the answer key withheld (TODO step 14). */
+export function serializeQuizReady(quiz: IQuiz): QuizReadyView {
+  return {
+    ...serializeQuiz(quiz),
+    questions: quiz.questions.map((question) => ({
+      question: question.question,
+      options: [...question.options],
+    })),
   };
 }
 

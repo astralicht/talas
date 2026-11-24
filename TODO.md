@@ -3,7 +3,7 @@
 Constitution is at v2.5.0 (v2.1.0 = commit `a8cdbed` cross-platform dev +
 list search; v2.2.0 dev tunneling; v2.3.0 plan-based feature limits; v2.4.0
 server-side upload transport; v2.5.0 GridFS object storage — see step 11).
-**All thirteen steps are complete (Nov 2026).** Gate order note: run e2e LAST —
+**All fourteen steps are complete (Nov 2026).** Gate order note: run e2e LAST —
 its dev server overwrites `.next` chunks, so contract/security suites must
 run against a fresh `pnpm build`. The same applies to a long-running
 `pnpm dev` on the machine: its recompiles corrupt `.next` for concurrently
@@ -537,6 +537,52 @@ Notes (2026-11-23):
 - Vision parts for text-bearing sources on vision-capable providers
   (openai/google) remain a possible follow-up; today the catalog path is
   provider-agnostic and works with text-only models.
+
+## Step 14 — Long quizzes from multiple lessons (DONE 2026-11-24)
+
+Learners can generate practice quizzes of exactly 20, 30, or 50
+multiple-choice items from 1–N finished lessons. Plan-tiered: stored quizzes
+3 (free) / 5 (plus); lessons per quiz 3 (free) / 7 (plus); each generation
+consumes one daily-generation point (refunded on terminal failure).
+
+- [x] Data + API: Quiz model (status/lease/questions with per-question source
+      attribution, 20/30/50 item-count enum), POST/GET/DELETE /api/quizzes —
+      auth + verified + CSRF + GENERATE_HOURLY; foreign/not-ready lessons
+      answer the same non-revealing 404; plan failures use the 403 envelope
+      (plan_quiz_limit, plan_quiz_sources, plan_generation_limit); deleting
+      frees the storage slot immediately. The answer key (correctIndex,
+      explanation) never leaves the server — reveal/scoring are deferred.
+- [x] AI: batched generation — ceil(items/5) sequential generateObject calls
+      (each inside the locked 4096-token cap), later batches see already-
+      written topics to avoid repetition, +2 replacement batches, exact-count
+      enforcement with dedupe, per-call budget recording, provider fallback
+      per batch, deterministic fake under AI_FAKE_LESSON. Quiz jobs run under
+      a 10-minute ceiling (the default 120 s MAX_JOB_MS cannot fit ten
+      batches) with the same lease/crash-recovery pattern; the reconcile
+      sweep and finalize-on-exhaustion paths cover the new queue.
+- [x] UI: Quizzes nav entry (hamburger picks it up), list page with status
+      badges + pagination, new-quiz form (multi-select lessons capped by
+      plan, 20/30/50 length selector, polling), quiz read view that polls
+      until ready and renders questions without the answer key, and a
+      "Generate quiz" entry on the lesson read view.
+- [x] Plans: PLANS gains quizzes (3/5) + maxQuizSources (3/7) with failure
+      codes; unit test pins the tier invariants.
+- [x] Constitution v2.6.0: quizzes consume the daily allowance; quiz storage
+      and per-quiz source limits are plan-tiered under Principle IV.
+- [x] Gates (isolated git worktree, live stack untouched): build ✓, 147/147
+      unit+security, 61/61 integration, 49/49 contract. E2E skipped per the
+      standing preference. Two flakes traced to machine load (a concurrent
+      vitest run in another project starved mongodb-memory-server boots)
+      plus one real fake-fidelity bug: the deterministic quiz fake repeated
+      question texts across batches, tripping the exact-count dedupe — fixed
+      with a per-call counter so every fake batch is fresh.
+
+Notes (2026-11-24):
+
+- Reveal-answer and scored-attempt modes are deliberately deferred; the
+  answer key stays server-side until then.
+- Item attribution comes from the model naming the source lesson; a later
+  vision-capable pass could tighten it.
 
 ## Dev environment notes (Windows + PowerShell, Linux + bash)
 

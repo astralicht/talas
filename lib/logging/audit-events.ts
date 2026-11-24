@@ -16,6 +16,9 @@ export function emitAudit(type: AuditEventType, context: AuditEventContext = {})
 export const auditEvents = {
   generationRequested: (context: AuditEventContext = {}) =>
     emitAudit('generation_requested', context),
+  quizRequested: (context: AuditEventContext = {}) => emitAudit('quiz_requested', context),
+  quizSucceeded: (context: AuditEventContext = {}) => emitAudit('quiz_succeeded', context),
+  quizFailed: (context: AuditEventContext = {}) => emitAudit('quiz_failed', context),
   registration: (context: AuditEventContext = {}) => emitAudit('registration', context),
   verificationSent: (context: AuditEventContext = {}) => emitAudit('verification_sent', context),
   emailVerified: (context: AuditEventContext = {}) => emitAudit('email_verified', context),

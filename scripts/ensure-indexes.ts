@@ -10,6 +10,7 @@ import {
   MaterialAsset,
   PasswordResetToken,
   ProcessingJob,
+  Quiz,
   RefreshToken,
   User,
 } from '../lib/db/models';
@@ -25,6 +26,7 @@ const models = [
   Lesson,
   LessonGenerationRequest,
   LessonRevision,
+  Quiz,
   AuditEvent,
   AccountDeletionRequest,
 ];

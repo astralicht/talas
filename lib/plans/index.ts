@@ -22,11 +22,29 @@ export interface PlanLimits {
    * differently. Regeneration does not consume the allowance.
    */
   dailyLessonGenerations: number;
+  /** Maximum non-deleted quizzes stored at once (TODO step 14). */
+  quizzes: number;
+  /** Maximum lessons a single quiz generation may draw from (TODO step 14). */
+  maxQuizSources: number;
 }
 
 export const PLANS: Record<PlanId, PlanLimits> = {
-  free: { materials: 5, lessons: 1, maxMaterialChars: 10_000, dailyLessonGenerations: 1 },
-  plus: { materials: 25, lessons: 5, maxMaterialChars: 10_000, dailyLessonGenerations: 5 },
+  free: {
+    materials: 5,
+    lessons: 1,
+    maxMaterialChars: 10_000,
+    dailyLessonGenerations: 1,
+    quizzes: 3,
+    maxQuizSources: 3,
+  },
+  plus: {
+    materials: 25,
+    lessons: 5,
+    maxMaterialChars: 10_000,
+    dailyLessonGenerations: 5,
+    quizzes: 5,
+    maxQuizSources: 7,
+  },
 };
 
 /** Machine-readable failure codes surfaced through the 403 quota envelope. */
@@ -35,6 +53,8 @@ export const PLAN_FAILURE_CODES = {
   chars: 'plan_char_limit',
   lessons: 'plan_lesson_limit',
   generations: 'plan_generation_limit',
+  quizzes: 'plan_quiz_limit',
+  quizSources: 'plan_quiz_sources',
 } as const;
 
 /**

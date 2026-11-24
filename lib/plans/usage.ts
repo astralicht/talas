@@ -1,5 +1,6 @@
 import { Material } from '@/lib/db/models/material';
 import { Lesson } from '@/lib/db/models/lesson';
+import { Quiz } from '@/lib/db/models/quiz';
 import { User } from '@/lib/db/models/user';
 import { planLimitsFor, PLAN_FAILURE_CODES, type PlanLimits } from './index';
 import { allowanceUsage } from './allowance';
@@ -17,6 +18,11 @@ export async function countUserMaterials(userId: string): Promise<number> {
 
 export async function countUserLessons(userId: string): Promise<number> {
   return Lesson.countDocuments({ userId, deletedAt: null, status: { $ne: 'deleted' } }).exec();
+}
+
+/** Non-deleted quizzes (any status holds the slot until deleted). */
+export async function countUserQuizzes(userId: string): Promise<number> {
+  return Quiz.countDocuments({ userId, status: { $ne: 'deleted' } }).exec();
 }
 
 /** Worker/route helper: resolves a user's plan id and limits (defaults to free). */

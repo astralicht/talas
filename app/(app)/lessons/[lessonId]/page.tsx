@@ -81,6 +81,13 @@ export default async function LessonViewPage({
               </a>
             ) : null}
             <Link
+              href={`/quizzes/new?lesson=${lessonId}`}
+              className="border-input bg-card hover:bg-muted text-foreground rounded-full border px-4 py-2 text-sm font-semibold"
+              data-testid="generate-quiz"
+            >
+              Generate quiz
+            </Link>
+            <Link
               href={`/lessons/${lessonId}/edit`}
               className={buttonVariants({ variant: 'primary', size: 'sm' })}
               data-testid="edit-lesson"

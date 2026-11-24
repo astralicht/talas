@@ -14,6 +14,7 @@ import type {
   DeleteAccountJob,
   GenerateLessonJob,
   GenerateLessonRequestJob,
+  GenerateQuizJob,
   MaterialJob,
   ParseMaterialJob,
   ScanMaterialJob,
@@ -122,6 +123,22 @@ export async function runGenerationRequest(
   if (!job) throw new Error(`No lesson-generation job queued for request ${requestId}`);
   const payload = job.payload as GenerateLessonRequestJob;
   await processGenerateLessonRequest(payload);
+  void userId;
+  return payload;
+}
+
+/** Drains the quiz-generation queue and runs the quiz processor (TODO step 14). */
+export async function runQuizGeneration(
+  quizId: string,
+  userId: string,
+): Promise<GenerateQuizJob> {
+  const { processGenerateQuiz } = await import('@/worker/processors/generate-quiz');
+  const job = takeMemoryJobsForTests('quiz-generation').find(
+    (entry) => (entry.payload as { quizId?: string }).quizId === quizId,
+  );
+  if (!job) throw new Error(`No quiz-generation job queued for quiz ${quizId}`);
+  const payload = job.payload as GenerateQuizJob;
+  await processGenerateQuiz(payload);
   void userId;
   return payload;
 }

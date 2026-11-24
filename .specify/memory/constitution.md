@@ -61,7 +61,10 @@ stored object's size and magic-byte media type. Blob storage lives behind the
 storage seam (`lib/storage/object-store`); since v2.5.0 the bytes are stored
 in the application database itself via GridFS under the same tenant-scoped
 key scheme, so database backups cover them and no separate object-store
-service exists. Uploaded files MUST be
+service exists. Since v2.6.0, practice quizzes generated from lessons
+consume one daily-generation point per quiz (refunded on terminal failure),
+and quiz storage (3 free / 5 plus) plus the per-quiz lesson-source cap
+(3 free / 7 plus) are plan-tiered under the same quota machinery. Uploaded files MUST be
 malware-scanned before parsing, filenames MUST be sanitized, and file parsing
 MUST run in an isolated worker with hard CPU, memory, and timeout limits.
 Image-only PDF documents MUST be accepted: their pages are
@@ -343,5 +346,5 @@ this document. A violation MUST block merge until it is resolved or formally
 waived in writing by the maintainers with a stated rationale and expiry. The
 constitution MUST be reviewed at least quarterly and after any security incident.
 
-**Version**: 2.5.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-20
+**Version**: 2.6.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-24
 

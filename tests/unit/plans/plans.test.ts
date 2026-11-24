@@ -46,4 +46,13 @@ describe('plan configuration', () => {
       expect(code).toMatch(/^plan_[a-z_]+$/);
     }
   });
+
+  it('caps quizzes and their source lessons per tier (TODO step 14)', () => {
+    expect(PLANS.free.quizzes).toBe(3);
+    expect(PLANS.plus.quizzes).toBe(5);
+    expect(PLANS.free.quizzes).toBeLessThan(PLANS.plus.quizzes);
+    expect(PLANS.free.maxQuizSources).toBe(3);
+    expect(PLANS.plus.maxQuizSources).toBe(7);
+    expect(PLANS.free.maxQuizSources).toBeLessThan(PLANS.plus.maxQuizSources);
+  });
 });
