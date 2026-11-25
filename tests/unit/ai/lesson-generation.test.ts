@@ -276,7 +276,7 @@ describe('lesson generation', () => {
     try {
       await generateLesson(input);
       expect(seen[0]?.maxOutputTokens).toBe(MAX_OUTPUT_TOKENS);
-      expect(MAX_OUTPUT_TOKENS).toBeLessThanOrEqual(4096);
+      expect(MAX_OUTPUT_TOKENS).toBeLessThanOrEqual(8192);
     } finally {
       setGenerateObjectForTests(null);
     }

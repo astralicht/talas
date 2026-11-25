@@ -3,7 +3,7 @@
 Constitution is at v2.5.0 (v2.1.0 = commit `a8cdbed` cross-platform dev +
 list search; v2.2.0 dev tunneling; v2.3.0 plan-based feature limits; v2.4.0
 server-side upload transport; v2.5.0 GridFS object storage — see step 11).
-**All sixteen steps are complete (Nov 2026).** Gate order note: run e2e LAST —
+**All seventeen steps are complete (Nov 2026).** Gate order note: run e2e LAST —
 its dev server overwrites `.next` chunks, so contract/security suites must
 run against a fresh `pnpm build`. The same applies to a long-running
 `pnpm dev` on the machine: its recompiles corrupt `.next` for concurrently
@@ -655,6 +655,27 @@ before the matching submission.
       with spoofed per-registration client IPs, the allowance-separation
       test now exhausts the allowance directly, and one stale contract
       assertion moved to the new allowance numbers.
+
+## Step 17 — Output cap doubled to 8192 tokens (DONE 2026-11-26)
+
+Found live (step 15/16 verification): `glm-5.3-flash` DOES reason on
+complex, figure-rich input — and hidden reasoning shares the completion
+budget. The figure-dense physics lesson burned all 4096 tokens on
+`reasoning_content` alone (`finish_reason: length`, `content: null`, no
+JSON emitted), failing generation deterministically. The .env comment's
+"no reasoning tokens" assumption was wrong for complex inputs.
+
+- [x] `MAX_OUTPUT_TOKENS` 4096 → 8192 (lib/ai/prompts.ts); the quiz path now
+      reads the shared constant instead of a hardcoded 4096; unit test pins
+      the new ceiling; comments updated (.env.example, quiz-prompt,
+      generate-quiz). Historical step-2 note stays as the record of what we
+      believed then.
+- [x] Constitution v2.9.0 (MINOR): generation output cap is 8192 tokens,
+      accommodating reasoning models whose hidden reasoning shares the
+      completion budget.
+- [x] Gates: typecheck, lint, 39/39 AI unit tests (lesson + quiz + plans).
+      Integration/contract untouched (the fake ignores token limits); the
+      running worker picked the constant up via tsx watch automatically.
 
 ## Dev environment notes (Windows + PowerShell, Linux + bash)
 

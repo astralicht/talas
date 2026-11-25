@@ -1,5 +1,5 @@
 export const MAX_INPUT_TOKENS = 32_768;
-export const MAX_OUTPUT_TOKENS = 4_096;
+export const MAX_OUTPUT_TOKENS = 8_192;
 export const APPROX_CHARS_PER_TOKEN = 4;
 export const MAX_INPUT_CHARS = MAX_INPUT_TOKENS * APPROX_CHARS_PER_TOKEN;
 
@@ -13,7 +13,9 @@ export const TOTAL_SOURCE_CHAR_CAP = 128_000;
 
 /**
  * Figure rules (TODO step 12): the model may embed stored figures in section
- * markdown. The caps protect the locked 4096-token output budget while still
+ * markdown. The caps protect the 8192-token output budget (doubled in TODO
+ * step 17 for reasoning models whose hidden reasoning shares the budget)
+ * while still
  * allowing meaningful illustration.
  */
 export const MAX_FIGURES_PER_LESSON = 6;

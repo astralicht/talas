@@ -1,6 +1,6 @@
 /**
  * Quiz-generation prompts (TODO step 14). Batches of five questions keep each
- * response comfortably inside the locked 4096-token output cap; the caller
+ * response comfortably inside the 8192-token output cap; the caller
  * stitches batches and de-duplicates.
  */
 

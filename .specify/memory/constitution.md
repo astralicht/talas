@@ -87,7 +87,11 @@ allow at most 10 requests per hour and 5 per minute per user. The `/api/chat`
 endpoint MUST allow at most 60 requests per hour and 5 per minute per user.
 Rejected requests MUST return 429 with a `Retry-After` header. Authentication
 endpoints MUST be rate-limited per IP and per account. LLM calls MUST also
-enforce per-request input and output token caps and a per-user daily cost budget.
+enforce per-request input and output token caps and a per-user daily cost
+budget. Since v2.9.0 the per-request output cap is 8192 tokens (doubled
+from the original 4096: reasoning models spend hidden reasoning tokens
+from the same completion budget, and complex figure-rich lessons exceed
+the smaller cap before emitting any JSON).
 
 Account plans constrain resource use. Every user has a plan (default `free`),
 and each plan declares — as configuration, so higher tiers can be added
@@ -353,5 +357,5 @@ this document. A violation MUST block merge until it is resolved or formally
 waived in writing by the maintainers with a stated rationale and expiry. The
 constitution MUST be reviewed at least quarterly and after any security incident.
 
-**Version**: 2.6.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-24
+**Version**: 2.9.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-26
 

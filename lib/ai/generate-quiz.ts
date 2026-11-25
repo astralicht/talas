@@ -15,6 +15,7 @@ import {
   QUIZ_PROMPT_VERSION,
   type QuizSourceLessonInput,
 } from './quiz-prompt';
+import { MAX_OUTPUT_TOKENS } from './prompts';
 
 export type QuizGenerationErrorCode =
   | 'provider_unavailable'
@@ -151,7 +152,7 @@ async function callModel(
     schema: quizBatchSchema,
     system: buildQuizSystemPrompt(),
     prompt: buildQuizBatchPrompt({ lessons, count, avoidTopics }),
-    maxOutputTokens: 4_096,
+    maxOutputTokens: MAX_OUTPUT_TOKENS,
     temperature: 0.3,
   });
 }
@@ -162,7 +163,7 @@ function normalizeQuestion(value: string): string {
 
 /**
  * Generates exactly `itemCount` distinct multiple-choice questions from 1-7
- * lessons, in batches of five (each call stays inside the locked 4096-token
+ * lessons, in batches of five (each call stays inside the 8192-token
  * output cap). Later batches see already-written topics to avoid repetition;
  * the loop allows a couple of extra batches to replace duplicates, and fails
  * when the model cannot produce the requested count. All-or-nothing: any
