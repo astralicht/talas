@@ -42,7 +42,7 @@ export function DeleteQuizDialog({ quizId }: { quizId: string }) {
               Delete this quiz?
             </h2>
             <p className="text-muted-foreground mt-2 text-sm">
-              The quiz and its attempt history are removed, and the plan's quiz-storage slot
+              The quiz and its attempt history are removed, and the plan&apos;s quiz-storage slot
               is freed. This cannot be undone.
             </p>
             {error ? (

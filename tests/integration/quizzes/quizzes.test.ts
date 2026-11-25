@@ -233,13 +233,25 @@ describe('quiz generation (TODO step 14)', () => {
     const quizId = (created.body as { id: string }).id;
     await runQuizGeneration(quizId, user.user.id);
 
-    // The fake model always sets correctIndex 0 — answer accordingly.
-    const answersFor = (pick: (questionIndex: number) => number) =>
-      Array.from({ length: 20 }, (_, questionIndex) => pick(questionIndex));
+    // Positions are distributed server-side (step 16.2) — the correct option
+    // is no longer always A. The pre-submission view exposes the options'
+    // text, so locate the correct option per question ("The correct
+    // statement" in the fake's output) without ever seeing the key.
+    const view = await user.session.get(`/api/quizzes/${quizId}`);
+    const options = (view.body as {
+      questions: Array<{ options: string[] }>;
+    }).questions.map((question) => question.options);
+    const correctPositions = options.map((questionOptions) => {
+      const index = questionOptions.indexOf('The correct statement');
+      expect(index).toBeGreaterThanOrEqual(0);
+      return index;
+    });
+    const answersFor = (pick: (questionIndex: number, correctIndex: number) => number) =>
+      correctPositions.map((correctIndex, questionIndex) => pick(questionIndex, correctIndex));
 
     // First attempt: all correct.
     const first = await user.session.post(`/api/quizzes/${quizId}/submit`, {
-      answers: answersFor(() => 0),
+      answers: answersFor((_questionIndex, correctIndex) => correctIndex),
     });
     expect(first.status).toBe(201);
     const firstView = first.body as {
@@ -254,9 +266,10 @@ describe('quiz generation (TODO step 14)', () => {
     // The reveal arrives only now — explanations included post-submission.
     expect(firstView.questions[0]?.explanation).toBeTruthy();
 
-    // Second attempt: all answered, mostly wrong — unlimited retakes.
+    // Second attempt: all answered, half wrong — unlimited retakes.
     const second = await user.session.post(`/api/quizzes/${quizId}/submit`, {
-      answers: answersFor((questionIndex) => (questionIndex % 2 === 0 ? 0 : 2)),
+      answers: answersFor((questionIndex, correctIndex) =>
+        questionIndex % 2 === 0 ? correctIndex : (correctIndex + 1) % 4),
     });
     expect(second.status).toBe(201);
     const secondView = second.body as {
@@ -278,7 +291,8 @@ describe('quiz generation (TODO step 14)', () => {
     };
     expect(replayView.attemptNumber).toBe(1);
     expect(replayView.score.correct).toBe(20);
-    expect(replayView.questions[0]?.yourAnswer).toBe(0);
+    expect(replayView.questions[0]?.yourAnswer).toBe(correctPositions[0]);
+    expect(replayView.questions[0]?.correctIndex).toBe(correctPositions[0]);
 
     // History is stored: two attempts on the same quiz, all answers valid.
     const stored = (await Quiz.findById(quizId).lean<IQuiz>().exec())?.attempts ?? [];

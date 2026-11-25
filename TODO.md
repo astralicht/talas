@@ -682,6 +682,41 @@ JSON emitted), failing generation deterministically. The .env comment's
       Integration/contract untouched (the fake ignores token limits); the
       running worker picked the constant up via tsx watch automatically.
 
+## Step 18 — Staged lesson generation: outline → per-section → quiz (DONE 2026-11-26)
+
+The 8192 cap (step 17) was still not enough: on the figure-rich physics
+PDF the reasoning model burned the whole budget drafting inside hidden
+reasoning before emitting any JSON, so single-call lesson generation
+failed deterministically on complex input. Structural fix instead of
+another cap bump: the pipeline now runs THREE small `generateObject`
+calls whose tasks are each small enough that reasoning cannot exhaust
+the token cap — an outline (summary, objectives, 3–8 section headings,
+figure assignment), one call PER SECTION (≤1200-char body + pedagogy
+fields), and a quiz call grounded in the finished lesson text.
+
+- [x] `lib/ai/lesson-staged-schemas.ts` — outline/section/quiz zod
+      schemas; `lib/ai/prompts.ts` — staged system+user prompt builders
+      (`v5`), including the stored-figure catalog in the outline prompt
+      and the assigned-figure instruction in each section call;
+      `lib/ai/generate-lesson.ts` rewritten as the staged pipeline
+      (provider chain + 3 retries per stage preserved, per-call token
+      accounting summed across stages, `reasoningEffort: high` on every
+      opengo call, user title forced at assembly, catalog allowlist
+      sanitization unchanged).
+- [x] Lesson version recorded as `v5`; single-call prompt builders stay
+      exported but unused.
+- [x] `AI_FAKE_LESSON` fake covers all three stages, including figure
+      assignment (outline picks `- Figure 1 (…): URL`, section embeds it
+      once) so the FR-008 figure flow exercises end-to-end.
+- [x] Position distribution (step 16.2) interacts with retake tests:
+      correct options no longer always sit at index 0 — the quizzes
+      integration test now locates the correct option by its TEXT in the
+      pre-submission view instead of blindly answering A.
+- [x] Gates (isolated worktree): build ✓, unit suite green, integration
+      suite green (materials figure-flow 17/17, quizzes 10/10 incl. the
+      retake rewrite), contract suite green. E2E skipped per the
+      standing preference.
+
 ## Dev environment notes (Windows + PowerShell, Linux + bash)
 
 Shared:

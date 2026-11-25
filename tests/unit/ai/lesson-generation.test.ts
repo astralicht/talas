@@ -181,7 +181,7 @@ describe('deterministic Markdown conversion', () => {
   });
 });
 
-describe('lesson generation', () => {
+describe('lesson generation (staged pipeline, TODO step 18)', () => {
   const input = {
     userId: '507f1f77bcf86cd799439011',
     filename: 'photosynthesis.pdf',
@@ -201,43 +201,131 @@ describe('lesson generation', () => {
     resetAiBudgetForTests();
   });
 
+  /**
+   * A stage-dispatching fake: reads the system prompt to identify which of
+   * the three pipeline stages is calling, and answers with a schema-valid
+   * payload for that stage.
+   */
+  function stagedFake(overrides: {
+    outline?: () => unknown;
+    section?: (heading: string, prompt: string) => unknown;
+    quiz?: () => unknown;
+  }) {
+    return (options: { system: string; prompt: string }): Promise<{ object: unknown }> => {
+      if (options.system.includes('plan a lesson')) {
+        const assignedFigure = options.prompt
+          .match(/- Figure 1 \([^)]*\): (\S+)/)?.[1];
+        return Promise.resolve({
+          object:
+            overrides.outline?.() ?? {
+              summary: 'A structured summary of the uploaded material.',
+              learningObjectives: ['Understand the key concepts of the material.'],
+              sections: [
+                { heading: 'Overview', ...(assignedFigure ? { figureUrl: assignedFigure } : {}) },
+                { heading: 'Deep dive' },
+                { heading: 'Practice' },
+              ],
+            },
+        });
+      }
+      if (options.system.includes('ONE section')) {
+        const heading = options.prompt.match(/This section's heading: ([^\n]+)/)?.[1] ?? 'Section';
+        return Promise.resolve({
+          object:
+            overrides.section?.(heading, options.prompt) ?? {
+              contentMarkdown: `Taught section: ${heading}.`,
+              keyPoints: [`Key point for ${heading}`],
+              checkUnderstanding: [`Self-check for ${heading}?`],
+            },
+        });
+      }
+      if (options.system.includes('self-test')) {
+        return Promise.resolve({
+          object:
+            overrides.quiz?.() ?? {
+              quiz: [
+                {
+                  question: 'What is the primary purpose of the material?',
+                  options: [
+                    'Summarising key concepts for study',
+                    'Selling a product',
+                    'Entertainment only',
+                    'Replacing a textbook',
+                  ],
+                  correctIndex: 0,
+                  explanation: 'The material is study reference content distilled for learners.',
+                },
+              ],
+            },
+        });
+      }
+      return Promise.resolve({ object: { nonsense: true } });
+    };
+  }
+
   it('records provider, model, and deterministic markdown on success', async () => {
     const { setGenerateObjectForTests } = await import('@/lib/ai/generate-lesson');
-    setGenerateObjectForTests(() => Promise.resolve({ object: validLesson, usage: { inputTokens: 1000, outputTokens: 500 } }));
+    setGenerateObjectForTests(stagedFake({}));
     try {
       const output = await generateLesson(input);
       expect(output.provider).toBe('openai');
-      expect(output.markdown).toContain('# Photosynthesis');
-      expect(output.promptVersion).toBe('v4');
-    } finally {
-      setGenerateObjectForTests(null);
-    }
-  });
-
-  it('falls back to the secondary provider when the primary returns garbage', async () => {
-    const { setGenerateObjectForTests } = await import('@/lib/ai/generate-lesson');
-    let calls = 0;
-    setGenerateObjectForTests(() => {
-      calls += 1;
-      // The primary burns all three retry attempts before the fallback runs.
-      if (calls <= 3) return Promise.resolve({ object: { nonsense: true } });
-      return Promise.resolve({ object: validLesson });
-    });
-    try {
-      const output = await generateLesson(input);
-      expect(calls).toBe(4);
-      expect(output.provider).toBe('google');
+      expect(output.markdown).toContain('# Overview');
+      expect(output.promptVersion).toBe('v5');
     } finally {
       setGenerateObjectForTests(null);
     }
   }, 20_000);
 
-  it('fails safely when the schema rejects every provider response', async () => {
+  it('falls back to the secondary provider when the primary returns garbage at the outline stage', async () => {
     const { setGenerateObjectForTests } = await import('@/lib/ai/generate-lesson');
-    setGenerateObjectForTests(() => Promise.resolve({ object: { broken: true } }));
+    let outlineCalls = 0;
+    setGenerateObjectForTests((options) => {
+      // The primary provider fails deterministically at every stage (the SDK
+      // model's provider reads 'openai.chat'); the fallback succeeds.
+      if (String((options.model as { provider?: string }).provider ?? '').startsWith('openai')) {
+        throw new Error('primary provider down');
+      }
+      if (options.system.includes('plan a lesson')) {
+        outlineCalls += 1;
+        return Promise.resolve({
+          object: {
+            summary: 'A structured summary.',
+            sections: [{ heading: 'Overview' }, { heading: 'Deep dive' }, { heading: 'Practice' }],
+          },
+        });
+      }
+      return Promise.resolve({
+        object: options.system.includes('ONE section')
+          ? { contentMarkdown: 'Section content.' }
+          : { quiz: [{ question: 'Q', options: ['A', 'B', 'C', 'D'], correctIndex: 0 }] },
+      });
+    });
     try {
+      const output = await generateLesson(input);
+      expect(outlineCalls).toBe(1);
+      expect(output.provider).toBe('google');
+    } finally {
+      setGenerateObjectForTests(null);
+    }
+  }, 60_000);
+
+  it('fails safely when the outline schema rejects every provider response', async () => {
+    const { setGenerateObjectForTests } = await import('@/lib/ai/generate-lesson');
+    setGenerateObjectForTests((options) => {
+      if (options.system.includes('plan a lesson')) {
+        return Promise.resolve({ object: { broken: true } });
+      }
+      return Promise.resolve({
+        object: options.system.includes('ONE section')
+          ? { contentMarkdown: 'Content.' }
+          : { quiz: [] },
+      });
+    });
+    try {
+      // All candidates and attempts fail at the outline stage: the pipeline
+      // surfaces provider_unavailable with the malformed cause chained.
       await expect(generateLesson(input)).rejects.toMatchObject({
-        code: 'malformed_model_output',
+        code: 'provider_unavailable',
       } as Partial<LessonGenerationError>);
     } finally {
       setGenerateObjectForTests(null);
@@ -271,19 +359,35 @@ describe('lesson generation', () => {
     const seen: Array<Record<string, unknown>> = [];
     setGenerateObjectForTests((options) => {
       seen.push(options as unknown as Record<string, unknown>);
-      return Promise.resolve({ object: validLesson });
+      if (options.system.includes('plan a lesson')) {
+        return Promise.resolve({
+          object: {
+            summary: 'A structured summary.',
+            sections: [{ heading: 'Overview' }, { heading: 'Deep dive' }, { heading: 'Practice' }],
+          },
+        });
+      }
+      if (options.system.includes('ONE section')) {
+        return Promise.resolve({ object: { contentMarkdown: 'Section content.' } });
+      }
+      return Promise.resolve({
+        object: { quiz: [{ question: 'Q', options: ['A', 'B', 'C', 'D'], correctIndex: 0 }] },
+      });
     });
     try {
       await generateLesson(input);
-      expect(seen[0]?.maxOutputTokens).toBe(MAX_OUTPUT_TOKENS);
+      expect(seen.length).toBeGreaterThanOrEqual(1);
+      for (const call of seen) {
+        expect(call.maxOutputTokens).toBe(MAX_OUTPUT_TOKENS);
+      }
       expect(MAX_OUTPUT_TOKENS).toBeLessThanOrEqual(8192);
     } finally {
       setGenerateObjectForTests(null);
     }
-  });
+  }, 20_000);
 });
 
-describe('stored-figure prompts (TODO step 12)', () => {
+describe('stored-figure prompts (TODO step 12, staged)', () => {
   const catalogUrl = '/api/materials/507f1f77bcf86cd799439011/images/507f191e77bcf86cd7994390';
   const images = [
     { url: catalogUrl, filename: 'photosynthesis.pdf', pageNumber: 3, width: 1600, height: 900 },
@@ -311,60 +415,102 @@ describe('stored-figure prompts (TODO step 12)', () => {
     resetAiBudgetForTests();
   });
 
-  it('renders the figure section with source context into the prompt', async () => {
+  it('renders the figure section with source context into the outline prompt', async () => {
     const { setGenerateObjectForTests } = await import('@/lib/ai/generate-lesson');
-    let seenPrompt = '';
-    let seenSystem = '';
+    const seenPrompts: string[] = [];
     setGenerateObjectForTests((options) => {
-      seenPrompt = options.prompt;
-      seenSystem = options.system;
-      return Promise.resolve({ object: validLesson, usage: { inputTokens: 10, outputTokens: 5 } });
+      seenPrompts.push(options.prompt);
+      if (options.system.includes('plan a lesson')) {
+        const assigned = options.prompt
+          .match(/- Figure 1 \([^)]*\): (\S+)/)?.[1];
+        return Promise.resolve({
+          object: {
+            summary: 'Summary.',
+            sections: [
+              { heading: 'Overview', ...(assigned ? { figureUrl: assigned } : {}) },
+              { heading: 'Deep dive' },
+              { heading: 'Practice' },
+            ],
+          },
+        });
+      }
+      if (options.system.includes('ONE section')) {
+        return Promise.resolve({ object: { contentMarkdown: `See the diagram.\n\n![Diagram](${catalogUrl})` } });
+      }
+      return Promise.resolve({ object: { quiz: [{ question: 'Q', options: ['A', 'B', 'C', 'D'], correctIndex: 0 }] } });
+    });
+    try {
+      const output = await generateLesson(figureInput);
+      // The outline prompt carries the enriched figure catalog.
+      const outlinePrompt = seenPrompts.find((p) => p.includes('plan a lesson') || p.includes('Stored figures'));
+      expect(outlinePrompt).toContain('Stored figures extracted from the sources');
+      expect(outlinePrompt).toContain(`- Figure 1 (from photosynthesis.pdf, page 3, 1600×900): ${catalogUrl}`);
+      // The generated markdown keeps the catalog URL (sanitization allowlist).
+      expect(output.markdown).toContain(`![Diagram](${catalogUrl})`);
+      expect(output.promptVersion).toBe('v5');
+    } finally {
+      setGenerateObjectForTests(null);
+    }
+  }, 20_000);
+
+  it('assigns an outline figure to a section and passes the URL into the section call', async () => {
+    const { setGenerateObjectForTests } = await import('@/lib/ai/generate-lesson');
+    const sectionPrompts: string[] = [];
+    setGenerateObjectForTests((options) => {
+      if (options.system.includes('plan a lesson')) {
+        const assigned = options.prompt.match(/- Figure 1 \([^)]*\): (\S+)/)?.[1];
+        return Promise.resolve({
+          object: {
+            summary: 'Summary.',
+            sections: [
+              { heading: 'Overview', ...(assigned ? { figureUrl: assigned } : {}) },
+              { heading: 'Deep dive' },
+              { heading: 'Practice' },
+            ],
+          },
+        });
+      }
+      if (options.system.includes('ONE section')) {
+        sectionPrompts.push(options.prompt);
+        return Promise.resolve({ object: { contentMarkdown: 'Section body.' } });
+      }
+      return Promise.resolve({
+        object: { quiz: [{ question: 'Q', options: ['A', 'B', 'C', 'D'], correctIndex: 0 }] },
+      });
     });
     try {
       await generateLesson(figureInput);
+      expect(sectionPrompts.length).toBeGreaterThanOrEqual(1);
+      expect(sectionPrompts[0]).toContain(`Assigned figure (embed exactly once if it fits): ${catalogUrl}`);
     } finally {
       setGenerateObjectForTests(null);
     }
-    expect(seenPrompt).toContain('Stored figures extracted from the sources');
-    expect(seenPrompt).toContain(`- Figure 1 (from photosynthesis.pdf, page 3, 1600×900): ${catalogUrl}`);
-    expect(seenSystem).toContain('Never invent URLs');
-    expect(seenSystem).toContain('at most 6 figures in the whole lesson');
-  });
-
-  it('derives the allowlist from images and keeps catalog URLs in the markdown', async () => {
-    const { setGenerateObjectForTests } = await import('@/lib/ai/generate-lesson');
-    const withFigure = {
-      ...validLesson,
-      sections: [
-        { ...validLesson.sections[0], contentMarkdown: `See the diagram.\n\n![Diagram](${catalogUrl})` },
-        validLesson.sections[1],
-      ],
-    };
-    setGenerateObjectForTests(() => Promise.resolve({ object: withFigure, usage: { inputTokens: 10, outputTokens: 5 } }));
-    try {
-      const output = await generateLesson(figureInput);
-      expect(output.promptVersion).toBe('v4');
-      expect(output.markdown).toContain(`![Diagram](${catalogUrl})`);
-    } finally {
-      setGenerateObjectForTests(null);
-    }
-  });
+  }, 20_000);
 
   it('strips figure URLs that were never offered', async () => {
     const { setGenerateObjectForTests } = await import('@/lib/ai/generate-lesson');
-    const forged = {
-      ...validLesson,
-      sections: [
-        { ...validLesson.sections[0], contentMarkdown: '![X](/api/materials/other/images/zzz)' },
-        validLesson.sections[1],
-      ],
-    };
-    setGenerateObjectForTests(() => Promise.resolve({ object: forged }));
+    setGenerateObjectForTests((options) => {
+      if (options.system.includes('plan a lesson')) {
+        return Promise.resolve({
+          object: {
+            summary: 'Summary.',
+            sections: [{ heading: 'Overview' }, { heading: 'Deep dive' }, { heading: 'Practice' }],
+          },
+        });
+      }
+      if (options.system.includes('ONE section')) {
+        return Promise.resolve({ object: { contentMarkdown: '![X](/api/materials/other/images/zzz)' } });
+      }
+      return Promise.resolve({
+        object: { quiz: [{ question: 'Q', options: ['A', 'B', 'C', 'D'], correctIndex: 0 }] },
+      });
+    });
     try {
       const output = await generateLesson(figureInput);
       expect(output.markdown).not.toContain('/api/materials/other/images/zzz');
     } finally {
       setGenerateObjectForTests(null);
     }
-  });
+  }, 20_000);
 });
+

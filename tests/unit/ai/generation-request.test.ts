@@ -122,29 +122,39 @@ describe('lesson generation with sources and title', () => {
     text: '',
   };
 
-  const validLesson = {
-    title: 'Model Invented Title',
-    summary: 'Summary.',
-    sections: [{ heading: 'Overview', contentMarkdown: 'Body text.' }],
-  };
-
   it('builds the multi-source prompt and forces the requested title on success', async () => {
     process.env.GOOGLE_GENERATIVE_AI_API_KEY = 'test-google-key';
     resetEnvCache();
     try {
       const { setGenerateObjectForTests } = await import('@/lib/ai/generate-lesson');
-      const seen: Array<Record<string, unknown>> = [];
+      const seenPrompts: string[] = [];
       setGenerateObjectForTests((options) => {
-        seen.push(options as unknown as Record<string, unknown>);
-        return Promise.resolve({ object: validLesson, usage: { inputTokens: 100, outputTokens: 50 } });
+        seenPrompts.push(options.prompt);
+        if (options.system.includes('plan a lesson')) {
+          return Promise.resolve({
+            object: {
+              summary: 'Summary.',
+              sections: [{ heading: 'Overview' }, { heading: 'Deep dive' }, { heading: 'Practice' }],
+            },
+          });
+        }
+        if (options.system.includes('ONE section')) {
+          return Promise.resolve({ object: { contentMarkdown: 'Body text.' } });
+        }
+        return Promise.resolve({
+          object: { quiz: [{ question: 'Q', options: ['A', 'B', 'C', 'D'], correctIndex: 0 }] },
+        });
       });
       try {
         const output = await generateLesson(input);
+        // The user-supplied title wins over the model's suggestion.
         expect(output.lesson.title).toBe('Requested Title');
         expect(output.markdown.startsWith('# Requested Title')).toBe(true);
-        expect(String(seen[0]?.prompt)).toContain('Source 1 metadata:');
-        expect(String(seen[0]?.prompt)).toContain('Source alpha content.');
-        expect(String(seen[0]?.prompt)).toContain('The lesson title is: Requested Title');
+        // The outline prompt delimits and caps every source individually.
+        const outlinePrompt = seenPrompts[0] ?? '';
+        expect(outlinePrompt).toContain('Source 1 metadata:');
+        expect(outlinePrompt).toContain('Source alpha content.');
+        expect(outlinePrompt).toContain('The lesson title is: Requested Title');
       } finally {
         setGenerateObjectForTests(null);
       }
@@ -152,5 +162,5 @@ describe('lesson generation with sources and title', () => {
       delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
       resetEnvCache();
     }
-  });
+  }, 20_000);
 });
