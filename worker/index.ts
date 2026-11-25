@@ -61,11 +61,12 @@ async function handle(job: Job): Promise<void> {
   });
 }
 
+/** Lesson generations with slow models can run long — 10-minute ceiling, not the default 2. */
 async function handleLessonGeneration(job: Job): Promise<void> {
   const payload = parseLessonRequestJob(job.data);
   await runWithCorrelation({ correlationId: payload.correlationId, userId: payload.userId }, async () => {
     logger.info({ jobId: job.id, jobType: payload.type }, 'Worker job started');
-    await withJobLimits(payload.type, () => processGenerateLessonRequest(payload));
+    await withJobLimits(payload.type, () => processGenerateLessonRequest(payload), 10 * 60 * 1000);
     logger.info({ jobId: job.id, jobType: payload.type }, 'Worker job finished');
   });
 }
