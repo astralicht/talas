@@ -5,6 +5,7 @@ import {
   BudgetExceededError,
   recordSpend,
 } from './budget';
+import { distributeCorrectPositions } from '@/lib/quizzes/positioning';
 import { lessonModelCandidates, type LessonModel } from './provider';
 import { withProviderRetries } from './provider-retry';
 import { getEnv } from '@/lib/env';
@@ -154,6 +155,10 @@ async function callModel(
     prompt: buildQuizBatchPrompt({ lessons, count, avoidTopics }),
     maxOutputTokens: MAX_OUTPUT_TOKENS,
     temperature: 0.3,
+    // OpenCode Go reasoning models: explicit high effort (user setting).
+    ...(candidate.provider === 'opengo'
+      ? { providerOptions: { 'openai-compatible': { reasoningEffort: 'high' } } }
+      : {}),
   });
 }
 
@@ -292,8 +297,13 @@ export async function generateQuiz(input: GenerateQuizInput): Promise<GenerateQu
     );
   }
 
+  // Correct-answer position distribution (step 16.2): models gravitate
+  // toward putting the correct option first; permute each question's options
+  // so the key spreads across A-D regardless of model bias.
+  const positioned = distributeCorrectPositions(questions.slice(0, input.itemCount));
+
   return {
-    questions: questions.slice(0, input.itemCount),
+    questions: positioned,
     provider: providerUsed.provider,
     model: providerUsed.model,
     promptVersion: QUIZ_PROMPT_VERSION,

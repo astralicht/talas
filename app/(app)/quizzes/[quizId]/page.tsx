@@ -7,6 +7,7 @@ import { Quiz } from '@/lib/db/models/quiz';
 import { serializeQuizAttemptResults } from '@/lib/http/serializers';
 import { QuizPoller } from '@/components/quizzes/quiz-poller';
 import { QuizExperience } from '@/components/quizzes/quiz-experience';
+import { DeleteQuizDialog } from '@/components/quizzes/delete-quiz-dialog';
 
 export const metadata: Metadata = { title: 'Quiz' };
 export const dynamic = 'force-dynamic';
@@ -41,13 +42,20 @@ export default async function QuizViewPage({
         <Link href="/quizzes" className="text-muted-foreground hover:text-foreground text-sm">
           ← Quizzes
         </Link>
-        <h1 className="text-foreground mt-2 text-2xl font-extrabold tracking-tight break-words">
-          {quiz.title}
-        </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          {quiz.itemCount} items · {quiz.sourceLessonIds.length} lesson
-          {quiz.sourceLessonIds.length === 1 ? '' : 's'} · {created}
-        </p>
+        <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-foreground text-2xl font-extrabold tracking-tight break-words">
+              {quiz.title}
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              {quiz.itemCount} items · {quiz.sourceLessonIds.length} lesson
+              {quiz.sourceLessonIds.length === 1 ? '' : 's'} · {created}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <DeleteQuizDialog quizId={quiz._id.toHexString()} />
+          </div>
+        </div>
       </div>
 
       {quiz.status !== 'ready' ? (

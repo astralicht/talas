@@ -80,6 +80,8 @@ export interface GenerateObjectCall {
     prompt: string;
     maxOutputTokens: number;
     temperature: number;
+    /** Provider-specific settings forwarded to the endpoint (e.g. reasoning effort). */
+    providerOptions?: Record<string, Record<string, string>>;
     /** Stored figure URLs offered to the model (FR-008). */
     imageCatalog?: string[];
     /** Vision parts (FR-008): present only for image-only sources. */
@@ -144,8 +146,8 @@ const defaultGenerateObject: GenerateObjectCall = (options) => {
   }
   const { messages, ...rest } = options;
   const params = messages
-    ? { model: rest.model, schema: rest.schema, system: rest.system, maxOutputTokens: rest.maxOutputTokens, temperature: rest.temperature, messages }
-    : { model: rest.model, schema: rest.schema, system: rest.system, maxOutputTokens: rest.maxOutputTokens, temperature: rest.temperature, prompt: rest.prompt };
+    ? { model: rest.model, schema: rest.schema, system: rest.system, maxOutputTokens: rest.maxOutputTokens, temperature: rest.temperature, providerOptions: rest.providerOptions, messages }
+    : { model: rest.model, schema: rest.schema, system: rest.system, maxOutputTokens: rest.maxOutputTokens, temperature: rest.temperature, providerOptions: rest.providerOptions, prompt: rest.prompt };
   return generateObject(params as never) as unknown as Promise<{
     object: unknown;
     usage?: GenerateObjectUsage;
@@ -169,6 +171,11 @@ async function callModel(
     system: buildLessonSystemPrompt(),
     maxOutputTokens: MAX_OUTPUT_TOKENS,
     temperature: 0.2,
+    // OpenCode Go reasoning models: explicit high effort (user setting).
+    // Native openai/google models don't take this key.
+    ...(candidate.provider === 'opengo'
+      ? { providerOptions: { 'openai-compatible': { reasoningEffort: 'high' } } }
+      : {}),
   };
 
   if (input.visionImages && input.visionImages.length > 0) {
