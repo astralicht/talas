@@ -16,6 +16,7 @@ afterEach(() => {
     'GOOGLE_GENERATIVE_AI_API_KEY',
     'OPENCODE_API_KEY',
     'AI_MODEL_OPENGO',
+    'AI_MODEL_OPENGO_FALLBACK',
   ]) {
     delete process.env[key];
   }
@@ -29,7 +30,9 @@ describe('lesson model candidates', () => {
     expect(candidates.primary.provider).toBe('opengo');
     expect(candidates.primary.modelId).toBe('glm-5.3-flash');
     expect(candidates.primary.model).toBeTruthy();
-    expect(candidates.fallback).toBeNull();
+    // Beam Free is always available as the first fallback (same endpoint/key).
+    expect(candidates.fallback).toMatchObject({ provider: 'opengo', modelId: 'beam-free' });
+    expect(candidates.extraFallbacks).toEqual([]);
   });
 
   it('honors AI_MODEL_OPENGO for chat-completions model ids', () => {
@@ -43,7 +46,11 @@ describe('lesson model candidates', () => {
     withEnv({ AI_PROVIDER: 'opengo', OPENCODE_API_KEY: 'go-key-test', OPENAI_API_KEY: 'oai-key' });
     const candidates = lessonModelCandidates();
     expect(candidates.primary.provider).toBe('opengo');
-    expect(candidates.fallback).toMatchObject({ provider: 'openai', modelId: 'gpt-4o' });
+    // Beam Free comes first, then OpenAI.
+    expect(candidates.fallback).toMatchObject({ provider: 'opengo', modelId: 'beam-free' });
+    expect(candidates.extraFallbacks).toEqual([
+      expect.objectContaining({ provider: 'openai', modelId: 'gpt-4o' }),
+    ]);
   });
 
   it('requires OPENCODE_API_KEY when AI_PROVIDER is opengo in production', () => {

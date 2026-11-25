@@ -14,6 +14,8 @@ export interface LessonModel {
 export interface LessonModelCandidates {
   primary: LessonModel;
   fallback: LessonModel | null;
+  /** Additional fallbacks tried after `fallback` (in order). */
+  extraFallbacks: LessonModel[];
 }
 
 /**
@@ -50,6 +52,7 @@ export function lessonModelCandidates(): LessonModelCandidates {
             modelId: env.AI_MODEL_OPENAI,
           }
         : null,
+      extraFallbacks: [],
     };
   }
 
@@ -63,21 +66,28 @@ export function lessonModelCandidates(): LessonModelCandidates {
         'x-opencode-session': randomUUID(),
       },
     });
+    const fallbacks: LessonModel[] = [
+      {
+        model: opengo(env.AI_MODEL_OPENGO_FALLBACK),
+        provider: 'opengo',
+        modelId: env.AI_MODEL_OPENGO_FALLBACK,
+      },
+    ];
+    if (env.OPENAI_API_KEY) {
+      fallbacks.push({
+        model: createOpenAI({ apiKey: env.OPENAI_API_KEY })(env.AI_MODEL_OPENAI),
+        provider: 'openai',
+        modelId: env.AI_MODEL_OPENAI,
+      });
+    }
     return {
       primary: {
         model: opengo(env.AI_MODEL_OPENGO),
         provider: 'opengo',
         modelId: env.AI_MODEL_OPENGO,
       },
-      // The fallback chain is unchanged: OpenAI/Google remain fallbacks when
-      // their keys are set, even though the Go subscription is the primary.
-      fallback: env.OPENAI_API_KEY
-        ? {
-            model: createOpenAI({ apiKey: env.OPENAI_API_KEY })(env.AI_MODEL_OPENAI),
-            provider: 'openai',
-            modelId: env.AI_MODEL_OPENAI,
-          }
-        : null,
+      fallback: fallbacks[0] ?? null,
+      extraFallbacks: fallbacks.slice(1),
     };
   }
 
@@ -97,6 +107,7 @@ export function lessonModelCandidates(): LessonModelCandidates {
           modelId: env.AI_MODEL_GOOGLE,
         }
       : null,
+    extraFallbacks: [],
   };
 }
 

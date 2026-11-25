@@ -156,10 +156,10 @@ async function callModel(
     maxOutputTokens: MAX_OUTPUT_TOKENS,
     temperature: 0.3,
     // OpenCode Go reasoning models: medium effort — quiz batches are small,
-    // structured tasks that reason cheaply (probe: ~400 reasoning tokens at
-    // high), so medium saves latency without hurting quality. Native
-    // openai/google models don't take this key.
-    ...(candidate.provider === 'opengo'
+    // structured tasks that reason cheaply. The free fallback model does not
+    // support reasoning effort, so skip it. Native openai/google models don't
+    // take this key.
+    ...(candidate.provider === 'opengo' && candidate.modelId !== getEnv().AI_MODEL_OPENGO_FALLBACK
       ? { providerOptions: { 'openai-compatible': { reasoningEffort: 'medium' } } }
       : {}),
   });
@@ -196,7 +196,7 @@ export async function generateQuiz(input: GenerateQuizInput): Promise<GenerateQu
   }
 
   const candidates = lessonModelCandidates();
-  const ordered = [candidates.primary, candidates.fallback].filter(
+  const ordered = [candidates.primary, candidates.fallback, ...candidates.extraFallbacks].filter(
     (candidate): candidate is LessonModel => candidate !== null,
   );
   const primary = ordered[0];

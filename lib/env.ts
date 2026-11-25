@@ -43,6 +43,7 @@ const envSchema = z
     AI_MODEL_GOOGLE: z.string().default('gemini-2.0-flash'),
     OPENCODE_API_KEY: z.string().optional().default(''),
     AI_MODEL_OPENGO: z.string().default('glm-5.3-flash'),
+    AI_MODEL_OPENGO_FALLBACK: z.string().default('beam-free'),
     AI_FAULT_INJECTION: booleanString.default(false),
     AI_FAKE_LESSON: booleanString.default(false),
 

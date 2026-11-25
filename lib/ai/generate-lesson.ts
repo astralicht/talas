@@ -214,7 +214,7 @@ export async function callStage(
     prompt,
     maxOutputTokens: MAX_OUTPUT_TOKENS,
     temperature: 0.2,
-    ...(candidate.provider === 'opengo'
+    ...(candidate.provider === 'opengo' && candidate.modelId !== getEnv().AI_MODEL_OPENGO_FALLBACK
       ? { providerOptions: { 'openai-compatible': { reasoningEffort } } }
       : {}),
   }) as unknown as Promise<{ object: unknown; usage?: GenerateObjectUsage }>;
@@ -297,7 +297,7 @@ export async function generateLesson(
   }
 
   const candidates = lessonModelCandidates();
-  const ordered = [candidates.primary, candidates.fallback].filter(
+  const ordered = [candidates.primary, candidates.fallback, ...candidates.extraFallbacks].filter(
     (candidate): candidate is LessonModel => candidate !== null,
   );
   const firstCandidate = ordered[0];
