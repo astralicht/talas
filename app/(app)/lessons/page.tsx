@@ -79,10 +79,10 @@ export default async function LessonsPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-foreground text-3xl font-extrabold tracking-tight">Lessons</h1>
-          <p className="text-muted-foreground text-sm">Generated and edited study lessons.</p>
+          <h1 className="text-foreground text-2xl font-extrabold tracking-tight">Lessons</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Generated and edited study lessons.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <span
@@ -108,7 +108,6 @@ export default async function LessonsPage({
         </div>
       </div>
 
-      <section className="border-border bg-card space-y-4 rounded-2xl border p-6">
         <ListToolbar
           action="/lessons"
           search={{
@@ -137,86 +136,73 @@ export default async function LessonsPage({
           hasFilters={hasFilters}
         />
 
-        {data.length === 0 ? (
-          hasFilters ? (
-            <p className="text-muted-foreground text-sm">
-              No lessons match your search or filters.{' '}
-              <Link
-                href="/lessons"
-                data-testid="lessons-clear-empty"
-                className="text-brand-700 font-medium hover:underline"
-              >
-                Clear filters
-              </Link>
-            </p>
-          ) : (
-            <p className="text-muted-foreground text-sm">
-              No lessons yet — create one from your processed materials.{' '}
-              <Link href="/lessons/new" className="text-brand-700 font-medium hover:underline">
-                New lesson
-              </Link>
-              .
-            </p>
-          )
-        ) : (
-          <>
-            <ul className="divide-border divide-y">
-              {data.map((lessonDoc) => {
-                const lesson = serializeLessonSummary(lessonDoc);
-                return (
-                  <li key={lesson.id} className="flex items-center justify-between gap-3 py-3">
-                    <div className="min-w-0">
-                      <Link
-                        href={`/lessons/${lesson.id}`}
-                        data-testid="lesson-link"
-                        className="text-foreground hover:text-brand-700 block truncate font-medium"
-                      >
-                        {lesson.title}
-                      </Link>
-                      <p className="text-muted-foreground text-xs">
-                        Version {lesson.version} · updated{' '}
-                        {new Date(lesson.updatedAt).toLocaleString()}
-                      </p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            <div className="border-border text-muted-foreground flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm">
-              <span data-testid="lessons-count">
-                Showing {start}–{end} of {total}
-              </span>
-              {pages > 1 ? (
-                <span className="flex items-center gap-3">
-                  {page > 1 ? (
+      {data.length === 0 ? (
+        <div className="border-border bg-card rounded-2xl border p-8 text-center">
+          <p className="text-foreground font-medium">
+            {hasFilters ? 'No lessons match your filters.' : 'No lessons yet'}
+          </p>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Create one from your processed materials.
+          </p>
+          {hasFilters ? (
+            <Link href="/lessons" data-testid="lessons-clear-empty" className={`${buttonVariants({ variant: 'outline', size: 'sm' })} mt-4`}>
+              Clear filters
+            </Link>
+          ) : null}
+        </div>
+      ) : (
+        <div className="border-border bg-card rounded-2xl border">
+          <ul className="divide-border divide-y">
+            {data.map((lessonDoc) => {
+              const lesson = serializeLessonSummary(lessonDoc);
+              return (
+                <li
+                  key={lesson.id}
+                  className="flex items-center justify-between gap-4 px-4 py-3 first:rounded-t-2xl last:rounded-b-2xl sm:px-5"
+                >
+                  <div className="min-w-0">
                     <Link
-                      href={href(page - 1)}
-                      className="text-brand-700 font-medium hover:underline"
+                      href={`/lessons/${lesson.id}`}
+                      data-testid="lesson-link"
+                      className="text-foreground block truncate font-semibold hover:underline"
                     >
-                      Previous
+                      {lesson.title}
                     </Link>
-                  ) : (
-                    <span>Previous</span>
-                  )}
-                  <span>
-                    Page {page} of {pages}
-                  </span>
+                    <p className="text-muted-foreground text-xs">
+                      Version {lesson.version} · updated{' '}
+                      {new Date(lesson.updatedAt).toLocaleString()}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="border-border text-muted-foreground flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm sm:px-5">
+            <span data-testid="lessons-count">
+              Showing {start}–{end} of {total}
+            </span>
+            {pages > 1 ? (
+              <span className="flex items-center gap-3">
+                {page > 1 ? (
+                  <Link href={href(page - 1)} className="hover:text-foreground">
+                    ← Newer
+                  </Link>
+                ) : (
+                  <span />
+                )}
+                <span>
+                  Page {page}
                   {page < pages ? (
-                    <Link
-                      href={href(page + 1)}
-                      className="text-brand-700 font-medium hover:underline"
-                    >
-                      Next
+                    <Link href={href(page + 1)} className="text-brand-700 ml-3 hover:underline">
+                      Older →
                     </Link>
-                  ) : (
-                    <span>Next</span>
-                  )}
+                  ) : null}
                 </span>
-              ) : null}
-            </div>
-          </>
-        )}
-      </section>
+              </span>
+            ) : null}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

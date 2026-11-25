@@ -58,9 +58,9 @@ describe('plan usage endpoint and quota envelope', () => {
     ]);
     expect(body.plan).toBe('free');
     expect(body.materials).toEqual({ used: 0, limit: 5 });
-    expect(body.lessons).toEqual({ used: 0, limit: 1 });
+    expect(body.lessons).toEqual({ used: 0, limit: 3 });
     expect(body.maxMaterialChars).toBe(10_000);
-    expect(body.generations).toMatchObject({ used: 0, limit: 1 });
+    expect(body.generations).toMatchObject({ used: 0, limit: 3 });
     // resetsAt is the next UTC midnight.
     expect(
       ((body.generations as { resetsAt: string }).resetsAt ?? '').endsWith('T00:00:00.000Z'),

@@ -12,11 +12,15 @@ import { countUserQuizzes, userPlanContext } from '@/lib/plans/usage';
 import { reserveLessonGeneration, refundLessonGeneration } from '@/lib/plans/allowance';
 import { auditEvents } from '@/lib/logging/audit-events';
 import { createQuizSchema } from '@/lib/validation/quizzes';
-import { paginationSchema } from '@/lib/validation/common';
+import {
+  quizListQuerySchema,
+  quizStatusesFor,
+  QUIZ_SORT_FIELDS,
+} from '@/lib/validation/list-queries';
 
 export const dynamic = 'force-dynamic';
 
-const listQuerySchema = paginationSchema;
+const listQuerySchema = quizListQuerySchema;
 
 /**
  * Explicit quiz-generation requests (TODO step 14). The request row is created
@@ -154,10 +158,16 @@ export const POST = route(
 
 export const GET = route({ auth: true, query: listQuerySchema }, async ({ user, query }) => {
   if (!user) throw new Error('Authenticated user missing from request context');
-  const filter = { userId: user.id };
+  const userId = new Types.ObjectId(user.id);
+  const sort = QUIZ_SORT_FIELDS[query.sort];
+  const filter = {
+    userId,
+    status: { $in: quizStatusesFor(query.status) },
+    ...(query.q ? { title: { $regex: query.q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' } } : {}),
+  };
   const [quizzes, total] = await Promise.all([
     Quiz.find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ [sort.field]: sort.direction })
       .skip((query.page - 1) * query.limit)
       .limit(query.limit)
       .lean()

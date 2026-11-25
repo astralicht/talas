@@ -9,12 +9,12 @@ export function MaterialList({ materials }: { materials: IMaterial[] }) {
       {materials.map((material) => (
         <li
           key={material._id.toHexString()}
-          className="flex items-center justify-between gap-3 py-3"
+          className="flex items-center justify-between gap-4 px-4 py-3 first:rounded-t-2xl last:rounded-b-2xl sm:px-5"
         >
           <div className="min-w-0">
             <Link
               href={`/materials/${material._id.toHexString()}`}
-              className="hover:text-brand-700 text-foreground block truncate font-medium"
+              className="text-foreground block truncate font-semibold hover:underline"
             >
               {material.originalFilename}
             </Link>

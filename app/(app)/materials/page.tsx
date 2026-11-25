@@ -84,12 +84,12 @@ export default async function MaterialsPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-foreground text-3xl font-extrabold tracking-tight">Materials</h1>
-          <p className="text-muted-foreground text-sm">Documents only you can see.</p>
+          <h1 className="text-foreground text-2xl font-extrabold tracking-tight">Materials</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Documents only you can see.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span
             data-testid="materials-quota"
             className={`border-border bg-card text-muted-foreground rounded-full border px-3 py-1.5 text-xs font-medium ${
@@ -109,97 +109,83 @@ export default async function MaterialsPage({
         </div>
       </div>
 
-      <section className="border-border bg-card space-y-4 rounded-2xl border p-6">
-        <ListToolbar
-          action="/materials"
-          search={{
-            name: 'q',
-            value: query.q ?? '',
-            label: 'Search',
-            placeholder: 'Search filenames',
-            testid: 'materials-search',
-          }}
-          status={{
-            name: 'status',
-            value: query.status,
-            defaultValue: 'all',
-            label: 'Status',
-            options: MATERIAL_STATUS_OPTIONS,
-            testid: 'materials-status',
-          }}
-          sort={{
-            name: 'sort',
-            value: query.sort,
-            defaultValue: 'newest',
-            label: 'Sort',
-            options: MATERIAL_SORT_OPTIONS,
-            testid: 'materials-sort',
-          }}
-          hasFilters={hasFilters}
-        />
+      <ListToolbar
+        action="/materials"
+        search={{
+          name: 'q',
+          value: query.q ?? '',
+          label: 'Search',
+          placeholder: 'Search filenames…',
+          testid: 'materials-search',
+        }}
+        status={{
+          name: 'status',
+          value: query.status,
+          defaultValue: 'all',
+          label: 'Status',
+          options: MATERIAL_STATUS_OPTIONS,
+          testid: 'materials-status',
+        }}
+        sort={{
+          name: 'sort',
+          value: query.sort,
+          defaultValue: 'newest',
+          label: 'Sort',
+          options: MATERIAL_SORT_OPTIONS,
+          testid: 'materials-sort',
+        }}
+        hasFilters={hasFilters}
+      />
 
-        {data.length === 0 ? (
-          hasFilters ? (
-            <p className="text-muted-foreground text-sm">
-              No materials match your search or filters.{' '}
-              <Link
-                href="/materials"
-                data-testid="materials-clear-empty"
-                className="text-brand-700 font-medium hover:underline"
-              >
-                Clear filters
-              </Link>
-            </p>
+      {data.length === 0 ? (
+        <div className="border-border bg-card rounded-2xl border p-8 text-center">
+          {hasFilters ? (
+            <p className="text-foreground font-medium">No materials match your filters.</p>
           ) : (
-            <p className="text-muted-foreground text-sm">
-              No materials yet.{' '}
-              {user.emailVerified ? (
-                <Link href="/materials/new" className="text-brand-700 font-medium hover:underline">
-                  Upload your first document.
-                </Link>
-              ) : (
-                'Verify your email to upload materials.'
-              )}
-            </p>
-          )
-        ) : (
-          <>
+            <p className="text-foreground font-medium">No materials yet</p>
+          )}
+          <p className="text-muted-foreground mt-1 text-sm">
+            {user.emailVerified
+              ? 'Upload a PDF, DOCX, Markdown, or text document to get started.'
+              : 'Verify your email to upload materials.'}
+          </p>
+          {hasFilters ? (
+            <Link href="/materials" data-testid="materials-clear-empty" className={`${buttonVariants({ variant: 'outline', size: 'sm' })} mt-4`}>
+              Clear filters
+            </Link>
+          ) : null}
+        </div>
+      ) : (
+        <>
+          <div className="border-border bg-card rounded-2xl border">
             <MaterialList materials={data} />
-            <div className="border-border text-muted-foreground flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm">
+            <div className="border-border text-muted-foreground flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm sm:px-5">
               <span data-testid="materials-count">
                 Showing {start}–{end} of {total}
               </span>
               {pages > 1 ? (
                 <span className="flex items-center gap-3">
                   {page > 1 ? (
-                    <Link
-                      href={href(page - 1)}
-                      className="text-brand-700 font-medium hover:underline"
-                    >
-                      Previous
+                    <Link href={href(page - 1)} className="hover:text-foreground">
+                      ← Newer
                     </Link>
                   ) : (
-                    <span>Previous</span>
+                    <span />
                   )}
                   <span>
-                    Page {page} of {pages}
+                    Page {page}
+                    {page < pages ? (
+                      <Link href={href(page + 1)} className="text-brand-700 ml-3 hover:underline">
+                        Older →
+                      </Link>
+                    ) : null}
                   </span>
-                  {page < pages ? (
-                    <Link
-                      href={href(page + 1)}
-                      className="text-brand-700 font-medium hover:underline"
-                    >
-                      Next
-                    </Link>
-                  ) : (
-                    <span>Next</span>
-                  )}
                 </span>
               ) : null}
             </div>
-          </>
-        )}
-      </section>
+          </div>
+        </>
+      )}
     </div>
   );
 }

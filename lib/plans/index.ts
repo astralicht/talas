@@ -31,17 +31,17 @@ export interface PlanLimits {
 export const PLANS: Record<PlanId, PlanLimits> = {
   free: {
     materials: 5,
-    lessons: 1,
+    lessons: 3,
     maxMaterialChars: 10_000,
-    dailyLessonGenerations: 1,
+    dailyLessonGenerations: 3,
     quizzes: 3,
     maxQuizSources: 3,
   },
   plus: {
     materials: 25,
-    lessons: 5,
+    lessons: 7,
     maxMaterialChars: 10_000,
-    dailyLessonGenerations: 5,
+    dailyLessonGenerations: 7,
     quizzes: 5,
     maxQuizSources: 7,
   },

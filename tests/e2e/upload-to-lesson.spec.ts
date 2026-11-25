@@ -113,10 +113,10 @@ test.describe.serial('upload → explicit lesson request → read view', () => {
     await expect(page).toHaveURL(/\/materials$/, { timeout: 15_000 });
     await expect(page.getByRole('link', { name: 'e2e-study.md' }).first()).toBeVisible();
 
-    // Sort and status selects keep the other params and navigate immediately.
-    await page.getByTestId('materials-sort').selectOption('name');
+    // Sort and status pills keep the other params and navigate immediately.
+    await page.getByRole('button', { name: 'Name A–Z' }).click();
     await expect(page).toHaveURL(/materials\?sort=name/, { timeout: 15_000 });
-    await page.getByTestId('materials-status').selectOption('awaiting_upload');
+    await page.getByRole('button', { name: 'Awaiting upload' }).click();
     await expect(page).toHaveURL(/materials\?status=awaiting_upload&sort=name/, {
       timeout: 15_000,
     });

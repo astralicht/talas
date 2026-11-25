@@ -132,6 +132,31 @@ export function serializeQuiz(quiz: IQuiz): QuizView {
   };
 }
 
+export interface QuizAttemptSummaryView {
+  attemptNumber: number;
+  scoreCorrect: number;
+  scoreTotal: number;
+  submittedAt: string;
+}
+
+export interface QuizAttemptQuestionView {
+  question: string;
+  options: string[];
+  yourAnswer: number | null;
+  correctIndex: number;
+  correct: boolean;
+  explanation: string | null;
+}
+
+export interface QuizResultsView extends QuizView {
+  attemptNumber: number;
+  score: { correct: number; total: number };
+  /** Per-question reveal — safe to expose only after that attempt's submission. */
+  questions: QuizAttemptQuestionView[];
+  /** Score history across all attempts (unlimited retakes, TODO step 16). */
+  history: QuizAttemptSummaryView[];
+}
+
 /** Ready-quiz view with the answer key withheld (TODO step 14). */
 export function serializeQuizReady(quiz: IQuiz): QuizReadyView {
   return {
@@ -139,6 +164,43 @@ export function serializeQuizReady(quiz: IQuiz): QuizReadyView {
     questions: quiz.questions.map((question) => ({
       question: question.question,
       options: [...question.options],
+    })),
+  };
+}
+
+/**
+ * Results view for one stored attempt (TODO step 16): the user's picks, the
+ * correct options, and the explanations — exposed only because the attempt
+ * was already submitted.
+ */
+export function serializeQuizAttemptResults(
+  quiz: IQuiz,
+  attemptIndex: number,
+): QuizResultsView {
+  const attempt = quiz.attempts[attemptIndex];
+  if (!attempt) throw new Error(`Attempt ${attemptIndex} does not exist`);
+  const attemptNumber = attemptIndex + 1;
+  const questions = quiz.questions.map((question, questionIndex) => {
+    const yourAnswer = attempt.answers[questionIndex] ?? -1;
+    return {
+      question: question.question,
+      options: [...question.options],
+      yourAnswer: yourAnswer === -1 ? null : yourAnswer,
+      correctIndex: question.correctIndex,
+      correct: yourAnswer === question.correctIndex,
+      explanation: question.explanation,
+    };
+  });
+  return {
+    ...serializeQuiz(quiz),
+    attemptNumber,
+    score: { correct: attempt.scoreCorrect, total: attempt.scoreTotal },
+    questions,
+    history: quiz.attempts.map((stored, index) => ({
+      attemptNumber: index + 1,
+      scoreCorrect: stored.scoreCorrect,
+      scoreTotal: stored.scoreTotal,
+      submittedAt: stored.submittedAt.toISOString(),
     })),
   };
 }

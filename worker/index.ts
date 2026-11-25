@@ -5,6 +5,8 @@ import { runWithCorrelation } from '@/lib/logging/correlation';
 import { connectDb, disconnectDb } from '@/lib/db/connection';
 import { closeQueues } from '@/lib/jobs/queues';
 import { reconcileStaleJobs } from '@/lib/jobs/reconcile';
+import { refundLessonGeneration } from '@/lib/plans/allowance';
+import { auditEvents } from '@/lib/logging/audit-events';
 import {
   ACCOUNT_DELETION_QUEUE,
   LESSON_GENERATION_QUEUE,
@@ -137,32 +139,28 @@ async function finalizeExhaustedGenerationRequest(job: Job): Promise<void> {
   }
 }
 
-/** Marks a quiz-generation request failed once BullMQ retries are exhausted. */
+/** Terminal quiz jobs leave no row (TODO step 15): delete, audit, refund. */
 async function finalizeExhaustedQuizJob(job: Job): Promise<void> {
-  const data = job.data as { type?: string; quizId?: string; userId?: string };
+  const data = job.data as { type?: string; quizId?: string; userId?: string; correlationId?: string };
   if (!data || data.type !== 'generate_quiz' || !data.quizId || !data.userId) return;
 
   const attemptsConfigured = job.opts?.attempts ?? 1;
   if (attemptsConfigured > 1 && job.attemptsMade < attemptsConfigured) return;
 
   const { Quiz } = await import('@/lib/db/models/quiz');
-  const stillOpen = await Quiz.findOneAndUpdate(
-    {
-      _id: data.quizId,
+  const removed = await Quiz.deleteOne({
+    _id: data.quizId,
+    userId: data.userId,
+    status: { $in: ['queued', 'processing'] },
+  }).exec();
+  if (removed.deletedCount > 0) {
+    await auditEvents.quizFailed({
       userId: data.userId,
-      status: { $in: ['queued', 'processing'] },
-    },
-    {
-      $set: {
-        status: 'failed',
-        leaseUntil: null,
-        lastErrorCode: 'internal_error',
-        lastErrorMessage: 'The generation worker could not finish. Request the quiz again.',
-      },
-    },
-  ).exec();
-  if (stillOpen) {
-    logger.warn({ quizId: data.quizId }, 'Quiz finalized as failed');
+      correlationId: data.correlationId,
+      metadata: { quizId: data.quizId, code: 'internal_error', message: 'The quiz worker could not finish the generation.' },
+    });
+    await refundLessonGeneration(data.userId).catch(() => undefined);
+    logger.warn({ quizId: data.quizId }, 'Quiz removed after exhausted generation attempts');
   }
 }
 

@@ -67,9 +67,13 @@ describe('quiz generation batching (TODO step 14)', () => {
 
   it('falls back to the secondary provider when the primary fails a batch', async () => {
     let calls = 0;
-    setGenerateObjectForTests(() => {
+    setGenerateObjectForTests((options) => {
       calls += 1;
-      if (calls % 2 === 1) throw new Error('primary provider down');
+      // The primary provider fails deterministically (the SDK model's
+      // provider reads 'openai.chat'); the fallback succeeds.
+      if (String((options.model as { provider?: string }).provider ?? '').startsWith('openai')) {
+        throw new Error('primary provider down');
+      }
       return Promise.resolve({
         object: {
           questions: [
@@ -90,7 +94,7 @@ describe('quiz generation batching (TODO step 14)', () => {
     } finally {
       setGenerateObjectForTests(null);
     }
-  });
+  }, 20_000);
 
   it('fails cleanly when the model cannot produce the requested count', async () => {
     setGenerateObjectForTests(() =>

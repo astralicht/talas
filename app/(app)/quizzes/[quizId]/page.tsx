@@ -4,7 +4,9 @@ import { notFound, redirect } from 'next/navigation';
 import { Types } from 'mongoose';
 import { getSessionUser } from '@/lib/auth/session';
 import { Quiz } from '@/lib/db/models/quiz';
+import { serializeQuizAttemptResults } from '@/lib/http/serializers';
 import { QuizPoller } from '@/components/quizzes/quiz-poller';
+import { QuizExperience } from '@/components/quizzes/quiz-experience';
 
 export const metadata: Metadata = { title: 'Quiz' };
 export const dynamic = 'force-dynamic';
@@ -49,36 +51,25 @@ export default async function QuizViewPage({
       </div>
 
       {quiz.status !== 'ready' ? (
-        <QuizPoller quizId={quiz._id.toHexString()} initialStatus={quiz.status} />
-      ) : quiz.questions.length === 0 ? (
-        <div className="border-border bg-card rounded-2xl border p-8 text-center">
-          <p className="text-foreground font-medium">This quiz is empty</p>
-          <p className="text-muted-foreground mt-1 text-sm">Generate a new quiz to replace it.</p>
-        </div>
+        <QuizPoller quizId={quiz._id.toHexString()} />
       ) : (
-        <ol className="space-y-4">
-          {quiz.questions.map((question, index) => (
-            <li
-              key={`${index}-${question.question.slice(0, 16)}`}
-              className="border-border bg-card rounded-2xl border p-5"
-              data-testid="quiz-question"
-            >
-              <p className="text-foreground font-semibold">
-                {index + 1}. {question.question}
-              </p>
-              <ol className="mt-3 space-y-1.5">
-                {question.options.map((option, optionIndex) => (
-                  <li key={optionIndex} className="text-muted-foreground flex gap-2 text-sm">
-                    <span className="text-foreground font-medium">
-                      {String.fromCharCode(65 + optionIndex)}.
-                    </span>
-                    <span>{option}</span>
-                  </li>
-                ))}
-              </ol>
-            </li>
-          ))}
-        </ol>
+        <QuizExperience
+          quizId={quiz._id.toHexString()}
+          itemCount={quiz.itemCount}
+          questions={quiz.questions.map((question) => ({
+            question: question.question,
+            options: [...question.options],
+          }))}
+          attempts={quiz.attempts.map((attempt, index) => ({
+            attemptNumber: index + 1,
+            scoreCorrect: attempt.scoreCorrect,
+            scoreTotal: attempt.scoreTotal,
+            submittedAt: attempt.submittedAt.toISOString(),
+          }))}
+          latestResults={
+            quiz.attempts.length > 0 ? serializeQuizAttemptResults(quiz, quiz.attempts.length - 1) : null
+          }
+        />
       )}
     </div>
   );

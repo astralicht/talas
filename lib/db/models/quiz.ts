@@ -22,6 +22,14 @@ export interface IQuizQuestion {
   sourceLessonTitle: string | null;
 }
 
+export interface IQuizAttempt {
+  /** Option index per question; -1 marks a skipped question. */
+  answers: number[];
+  scoreCorrect: number;
+  scoreTotal: number;
+  submittedAt: Date;
+}
+
 export interface IQuiz {
   _id: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
@@ -32,6 +40,8 @@ export interface IQuiz {
   sourceLessonIds: mongoose.Types.ObjectId[];
   status: QuizStatus;
   questions: IQuizQuestion[];
+  /** Completed attempts (unlimited retakes, TODO step 16). */
+  attempts: IQuizAttempt[];
   /** Worker lease for crash recovery (same pattern as generation requests). */
   leaseUntil: Date | null;
   lastErrorCode: string | null;
@@ -56,6 +66,25 @@ const questionSchema = new Schema<IQuizQuestion>(
     explanation: { type: String, default: null, maxlength: 300 },
     sourceLessonId: { type: Schema.Types.ObjectId, ref: 'Lesson', default: null },
     sourceLessonTitle: { type: String, default: null, maxlength: 200 },
+  },
+  { _id: false },
+);
+
+const attemptSchema = new Schema<IQuizAttempt>(
+  {
+    answers: {
+      type: [Number],
+      required: true,
+      validate: {
+        validator: (value: unknown) =>
+          Array.isArray(value) &&
+          value.every((entry) => typeof entry === 'number' && Number.isInteger(entry) && entry >= -1 && entry <= 3),
+        message: 'Every answer is an option index (0-3) or -1 for skipped',
+      },
+    },
+    scoreCorrect: { type: Number, required: true, min: 0 },
+    scoreTotal: { type: Number, required: true, min: 1 },
+    submittedAt: { type: Date, default: Date.now },
   },
   { _id: false },
 );
@@ -89,6 +118,7 @@ const quizSchema = new Schema<IQuiz>(
       default: 'queued',
     },
     questions: { type: [questionSchema], default: [] },
+    attempts: { type: [attemptSchema], default: [] },
     leaseUntil: { type: Date, default: null },
     lastErrorCode: { type: String, default: null },
     lastErrorMessage: { type: String, default: null },

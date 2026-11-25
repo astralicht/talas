@@ -3,21 +3,28 @@ import { route } from '@/lib/http/handler';
 import { json, noContent } from '@/lib/http/responses';
 import { errors } from '@/lib/http/errors';
 import { Quiz } from '@/lib/db/models/quiz';
-import { serializeQuiz, serializeQuizReady } from '@/lib/http/serializers';
-import { quizIdParamsSchema } from '@/lib/validation/quizzes';
+import {
+  serializeQuiz,
+  serializeQuizAttemptResults,
+  serializeQuizReady,
+} from '@/lib/http/serializers';
+import { quizAttemptQuerySchema, quizIdParamsSchema } from '@/lib/validation/quizzes';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Quiz progress + result. While queued/processing the view carries the status
- * and the last error; when ready it carries the questions — without the
- * answer key, which stays server-side until a later step adds
- * reveal/scored modes (TODO step 14). Foreign ids answer the same
- * non-revealing 404 as a missing quiz.
+ * Quiz view, three modes (TODO step 16):
+ * - queued/processing: progress only.
+ * - ready, never attempted: the interactive view — questions WITHOUT the
+ *   answer key (it stays in the database until a submission).
+ * - attempted: the results view for the requested attempt (default: the
+ *   latest) — your picks, the correct options, and the explanations, plus the
+ *   score history across retakes. Foreign ids answer the same non-revealing
+ *   404 as a missing quiz.
  */
 export const GET = route(
-  { auth: true, params: quizIdParamsSchema },
-  async ({ user, params }) => {
+  { auth: true, params: quizIdParamsSchema, query: quizAttemptQuerySchema },
+  async ({ user, params, query }) => {
     if (!user) throw new Error('Authenticated user missing from request context');
     const quiz = await Quiz.findOne({
       _id: new Types.ObjectId(params.quizId),
@@ -27,13 +34,20 @@ export const GET = route(
       .exec();
     if (!quiz) throw errors.notFound();
     const typed = quiz as unknown as Parameters<typeof serializeQuiz>[0];
-    return json(quiz.status === 'ready' ? serializeQuizReady(typed) : serializeQuiz(typed));
+
+    if (typed.status !== 'ready') return json(serializeQuiz(typed));
+    if (typed.attempts.length === 0) return json(serializeQuizReady(typed));
+
+    const requested = query.attempt ?? typed.attempts.length;
+    const attemptIndex = Math.min(Math.max(requested - 1, 0), typed.attempts.length - 1);
+    return json(serializeQuizAttemptResults(typed, attemptIndex));
   },
 );
 
 /**
  * Deletes a quiz in any state (a racing worker simply writes to nothing).
- * Deleting frees the plan's quiz-storage slot immediately.
+ * Deleting frees the plan's quiz-storage slot immediately, along with every
+ * stored attempt.
  */
 export const DELETE = route(
   { auth: true, csrf: true, params: quizIdParamsSchema },

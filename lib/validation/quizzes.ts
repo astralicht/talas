@@ -33,4 +33,22 @@ export const quizIdParamsSchema = strictObject({
   quizId: objectIdSchema,
 });
 
+/** Optional attempt selector for GET /api/quizzes/{id} (1-based). */
+export const quizAttemptQuerySchema = strictObject({
+  attempt: z.coerce.number().int().min(1).optional(),
+});
+
+/**
+ * Request body for POST /api/quizzes/{id}/submit (TODO step 16): one option
+ * index per question; -1 marks a skipped question. The route checks the
+ * length against the quiz's itemCount.
+ */
+export const submitQuizSchema = strictObject({
+  answers: z
+    .array(z.number().int().min(-1).max(3))
+    .min(1)
+    .max(50),
+});
+
 export type CreateQuizInput = z.infer<typeof createQuizSchema>;
+export type SubmitQuizInput = z.infer<typeof submitQuizSchema>;

@@ -64,7 +64,14 @@ key scheme, so database backups cover them and no separate object-store
 service exists. Since v2.6.0, practice quizzes generated from lessons
 consume one daily-generation point per quiz (refunded on terminal failure),
 and quiz storage (3 free / 5 plus) plus the per-quiz lesson-source cap
-(3 free / 7 plus) are plan-tiered under the same quota machinery. Uploaded files MUST be
+(3 free / 7 plus) are plan-tiered under the same quota machinery. Since
+v2.7.0, lesson storage holds 3 lessons on the free plan and 7 on plus, and
+failed quiz attempts are removed at terminal failure — audited with the
+reason, allowance refunded — so they never occupy storage slots or appear
+in lists. Since v2.8.0, quizzes support unlimited scored retakes: learners
+answer in the browser, submissions are graded server-side (the answer key
+leaves the database only after that attempt's submission), and every
+attempt is stored with its score. Uploaded files MUST be
 malware-scanned before parsing, filenames MUST be sanitized, and file parsing
 MUST run in an isolated worker with hard CPU, memory, and timeout limits.
 Image-only PDF documents MUST be accepted: their pages are

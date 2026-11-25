@@ -20,6 +20,7 @@ import {
 } from './prompts';
 import { sanitizeGeneratedImages } from './images';
 import { lessonModelCandidates, type LessonModel } from './provider';
+import { withProviderRetries } from './provider-retry';
 import { getEnv } from '@/lib/env';
 
 export type LessonGenerationErrorCode =
@@ -247,12 +248,16 @@ export async function generateLesson(
     (candidate): candidate is LessonModel => candidate !== null,
   );
 
-  let lastError: unknown = null;
-  for (const candidate of ordered) {
-    try {
+  // Bounded retries per candidate absorb transient provider failures
+  // (empty completions, malformed batches); budget exhaustion is terminal.
+  const outcome = await withProviderRetries(
+    ordered,
+    async (candidate) => {
       const result = await callModel(candidate, input);
       const parsed = parseGeneratedLesson(result.object);
       if (!parsed.ok) {
+        // A malformed lesson is a model-quality transient: retry before
+        // falling back to the next provider.
         throw new LessonGenerationError(
           'malformed_model_output',
           'The model returned an invalid lesson structure.',
@@ -266,36 +271,29 @@ export async function generateLesson(
         usage.outputTokens ?? 0,
       );
 
-      // The user-supplied title (specs/005) wins over the model's suggestion.
-      const lesson: GeneratedLesson = input.title
-        ? { ...parsed.lesson, title: input.title }
-        : parsed.lesson;
-
-      // FR-008: only catalog URLs may survive into stored lesson content.
-      const markdown = catalogUrls(input)
-        ? sanitizeGeneratedImages(lessonToMarkdown(lesson), catalogUrls(input)!)
-        : lessonToMarkdown(lesson);
-
-      return {
-        lesson,
-        markdown,
-        provider: candidate.provider,
-        model: candidate.modelId,
-        promptVersion: LESSON_PROMPT_VERSION,
-      };
-    } catch (error) {
-      if (error instanceof LessonGenerationError && error.code === 'malformed_model_output') {
-        lastError = error;
-        continue;
-      }
-      lastError = error;
-    }
-  }
-
-  if (lastError instanceof LessonGenerationError) throw lastError;
-  throw new LessonGenerationError(
-    'provider_unavailable',
-    'The AI provider is temporarily unavailable.',
-    { cause: lastError },
+      return parsed.lesson;
+    },
+    {
+      isTerminal: (error) =>
+        error instanceof LessonGenerationError && error.code === 'budget_exceeded',
+    },
   );
+
+  // The user-supplied title (specs/005) wins over the model's suggestion.
+  const lesson: GeneratedLesson = input.title
+    ? { ...outcome.result, title: input.title }
+    : outcome.result;
+
+  // FR-008: only catalog URLs may survive into stored lesson content.
+  const markdown = catalogUrls(input)
+    ? sanitizeGeneratedImages(lessonToMarkdown(lesson), catalogUrls(input)!)
+    : lessonToMarkdown(lesson);
+
+  return {
+    lesson,
+    markdown,
+    provider: outcome.provider,
+    model: outcome.modelId,
+    promptVersion: LESSON_PROMPT_VERSION,
+  };
 }

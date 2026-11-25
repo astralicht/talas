@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { paginationSchema, strictObject } from './common';
 import { MATERIAL_STATUSES, type MaterialStatus } from '@/lib/db/models/material';
+import type { QuizStatus } from '@/lib/db/models/quiz';
 
 /**
  * Shared list-query validation for the materials/lessons list endpoints
@@ -108,6 +109,45 @@ export interface LessonListParams {
   status?: LessonStatusFilter;
   sort?: LessonSort;
 }
+
+// ---------------------------------------------------------------- quizzes
+
+export const quizStatusGroups = ['all', 'ready', 'generating'] as const;
+export type QuizStatusGroup = (typeof quizStatusGroups)[number];
+
+/**
+ * UI-friendly status groups for the quizzes list (TODO step 15). There is
+ * deliberately no 'failed' group: terminal failures are deleted at the
+ * moment of failure (audited, allowance refunded), so they never persist
+ * and never appear. 'generating' bundles the in-flight statuses.
+ */
+const QUIZ_STATUS_GROUP_MAP: Record<Exclude<QuizStatusGroup, 'all'>, readonly QuizStatus[]> = {
+  ready: ['ready'],
+  generating: ['queued', 'processing'],
+};
+
+export function quizStatusesFor(group: QuizStatusGroup): QuizStatus[] {
+  const live: readonly QuizStatus[] = ['queued', 'processing', 'ready'];
+  return group === 'all' ? [...live] : [...QUIZ_STATUS_GROUP_MAP[group]];
+}
+
+export const quizSorts = ['recent', 'oldest', 'title'] as const;
+export type QuizSort = (typeof quizSorts)[number];
+
+export const QUIZ_SORT_FIELDS: Record<QuizSort, { field: string; direction: 1 | -1 }> = {
+  recent: { field: 'createdAt', direction: -1 },
+  oldest: { field: 'createdAt', direction: 1 },
+  title: { field: 'title', direction: 1 },
+};
+
+export const quizListQuerySchema = strictObject({
+  ...paginationSchema.shape,
+  q: searchSchema.optional(),
+  status: z.enum(quizStatusGroups).default('all'),
+  sort: z.enum(quizSorts).default('recent'),
+});
+
+export type QuizListQuery = z.infer<typeof quizListQuerySchema>;
 
 // ---------------------------------------------------------------- helpers
 

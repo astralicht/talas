@@ -3,7 +3,7 @@
 Constitution is at v2.5.0 (v2.1.0 = commit `a8cdbed` cross-platform dev +
 list search; v2.2.0 dev tunneling; v2.3.0 plan-based feature limits; v2.4.0
 server-side upload transport; v2.5.0 GridFS object storage — see step 11).
-**All fourteen steps are complete (Nov 2026).** Gate order note: run e2e LAST —
+**All sixteen steps are complete (Nov 2026).** Gate order note: run e2e LAST —
 its dev server overwrites `.next` chunks, so contract/security suites must
 run against a fresh `pnpm build`. The same applies to a long-running
 `pnpm dev` on the machine: its recompiles corrupt `.next` for concurrently
@@ -583,6 +583,78 @@ Notes (2026-11-24):
   answer key stays server-side until then.
 - Item attribution comes from the model naming the source lesson; a later
   vision-capable pass could tighten it.
+
+## Step 15 — Lesson quota bump + quizzes list UX (DONE 2026-11-24)
+
+- [x] Plan limits (option A): lessons stored free 1 → 3, plus 5 → 7; the
+      daily-generation allowance follows the derivation (free 3 / plus 7) —
+      lessons and quizzes share the pool, so a free user can now generate a
+      lesson and a quiz the same day. Materials, characters, stored quizzes,
+      and per-quiz source caps unchanged. Unit test pins the new numbers.
+- [x] Failed quizzes never appear: the worker deletes the row at terminal
+      failure (processor error, exhausted retries) after the audit event and
+      allowance refund — nothing failed is ever stored, listed, or counted.
+      Both pollers translate the resulting 404 into a retryable failure
+      message.
+- [x] Quizzes list matches the other lists: title search (q), status groups
+      (all / ready / generating — no failed group exists), sorts (recent /
+      oldest / title), pagination via the shared buildListHref helper;
+      quizListQuerySchema joins lib/validation/list-queries.ts. The shared
+      ListToolbar was restyled to the pill design (search pill, status tab
+      pills, sort links — debounced search, immediate pill navigation,
+      testids preserved) and the materials and lessons screens adopted the
+      same toolbar, standalone list cards, pagination links, and row
+      styling, so all three list screens look identical. The e2e journey was
+      updated from selectOption to pill clicks for the future run.
+- [x] Constitution v2.7.0 (MINOR): lesson storage 3/7; failed quiz attempts
+      are removed at terminal failure and never occupy storage or lists.
+- [x] Gates (isolated git worktree, live stack untouched; run once for steps
+      15+16 together): build ✓, 150/150 unit+security, 64/64 integration,
+      49/49 contract. E2E skipped per the standing preference.
+
+Notes (2026-11-24):
+
+- Deleting a quiz remains available for ready quizzes (frees the slot);
+  failed ones are already gone by the time you'd look.
+- Reveal-answer and scored-attempt modes stay deferred (step 14 note).
+
+## Step 16 — Interactive quizzes: select → submit → score (DONE 2026-11-26)
+
+Quizzes become two-mode experiences. Interactive mode: radio picks per
+question (leave blank to skip), a sticky answered-count bar, and submit.
+Results mode: server-side grading against the answer key — score header,
+per-question your-answer vs correct option (red/green), and the model's
+explanation finally visible — plus the score history across unlimited
+retakes and a Retake button. The answer key never leaves the database
+before the matching submission.
+
+- [x] Data: Quiz.attempts[] — { answers (-1 = skipped), scoreCorrect,
+      scoreTotal, submittedAt }; unlimited submissions append attempts.
+- [x] API: POST /api/quizzes/{id}/submit (auth + CSRF, length-checked against
+      itemCount, 409 while generating, 404 for foreign ids); grading in
+      lib/quizzes/grading.ts; GET /{id} serves three shapes — progress,
+      interactive (no key), results (?attempt=N replays any attempt, default
+      latest) with the score history.
+- [x] UI: components/quizzes/quiz-experience.tsx — interactive form
+      (selection state client-side; a mid-retake refresh discards
+      selections), results rendering with your-pick/correct highlighting,
+      history chips, retake button. The server page passes the latest
+      results when attempts exist.
+- [x] Tests: grading unit tests (correct/wrong/skipped/out-of-range);
+      integration — append semantics across retakes, history + ?attempt
+      replay, length and range validation, foreign 404, pre-submission key
+      withholding. Grading consumes no allowance.
+- [x] Constitution v2.8.0 (MINOR): server-side graded attempts stored with
+      scores; answer keys exposed only after the matching submission.
+- [x] Gates (isolated worktree, live stack untouched; the same run as step
+      15): build ✓, 150/150 unit+security, 64/64 integration, 49/49
+      contract. E2E skipped per the standing preference. One
+      fake-fidelity bug fixed en route: the deterministic quiz fake repeated
+      question texts across batches, tripping the exact-count dedupe — fixed
+      with a per-call counter. Test-side rate-limit collisions were fixed
+      with spoofed per-registration client IPs, the allowance-separation
+      test now exhausts the allowance directly, and one stale contract
+      assertion moved to the new allowance numbers.
 
 ## Dev environment notes (Windows + PowerShell, Linux + bash)
 

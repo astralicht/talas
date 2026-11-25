@@ -20,3 +20,7 @@ blob-report/
 .claude/
 opencode.json
 .data/
+
+# Local key archives must never enter version control.
+talas_env_new.zip
+*.env.zip

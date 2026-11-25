@@ -126,9 +126,9 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
     ]);
     expect(snapshot.plan).toBe('plus');
     expect(snapshot.materials).toMatchObject({ used: 5, limit: 25 });
-    expect(snapshot.lessons).toMatchObject({ used: 0, limit: 5 });
+    expect(snapshot.lessons).toMatchObject({ used: 0, limit: 7 });
     expect(snapshot.maxMaterialChars).toBe(10_000);
-    expect(snapshot.generations).toMatchObject({ used: 0, limit: 5 });
+    expect(snapshot.generations).toMatchObject({ used: 0, limit: 7 });
     expect(typeof (snapshot.generations as { resetsAt: string }).resetsAt).toBe('string');
 
     const allowed = await presign(user.session, 'upgraded.md');
@@ -234,65 +234,51 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
     await confirmMaterial(user.session, upload.materialId);
     await runPipeline({ materialId: upload.materialId });
 
-    const first = await user.session.post('/api/lessons/generate', {
-      title: 'First lesson',
-      materialIds: [upload.materialId],
-    });
-    expect(first.status).toBe(202);
-    const firstView = first.body as { requestId: string };
-    await runGenerationRequest(firstView.requestId, user.user.id);
+    // Free plan: three lesson slots (TODO step 15) — fill them all.
+    for (let index = 0; index < 3; index += 1) {
+      const generation = await user.session.post('/api/lessons/generate', {
+        title: `Lesson ${index + 1}`,
+        materialIds: [upload.materialId],
+      });
+      expect(generation.status).toBe(202);
+      const view = generation.body as { requestId: string };
+      await runGenerationRequest(view.requestId, user.user.id);
+    }
 
-    // Free plan: the single lesson slot is occupied.
-    const second = await user.session.post('/api/lessons/generate', {
-      title: 'Second lesson',
+    const blocked = await user.session.post('/api/lessons/generate', {
+      title: 'Fourth lesson',
       materialIds: [upload.materialId],
     });
-    expect(second.status).toBe(403);
-    expect((second.body as QuotaEnvelope).details?.reason).toBe('plan_lesson_limit');
+    expect(blocked.status).toBe(403);
+    expect((blocked.body as QuotaEnvelope).details?.reason).toBe('plan_lesson_limit');
   });
 
   it('separates lesson storage from the daily generation allowance', async () => {
     const user = await registerVerifiedUser(appUrl);
-    const firstUpload = await uploadToStorage(
+    const upload = await uploadToStorage(
       user.session,
       user.user.id,
-      'daily-one.md',
+      'daily.md',
       'text/markdown',
       TEXT_MATERIAL_BYTES,
     );
-    await confirmMaterial(user.session, firstUpload.materialId);
-    await runPipeline({ materialId: firstUpload.materialId });
-    const secondUpload = await uploadToStorage(
-      user.session,
-      user.user.id,
-      'daily-two.md',
-      'text/markdown',
-      TEXT_MATERIAL_BYTES,
-    );
-    await confirmMaterial(user.session, secondUpload.materialId);
-    await runPipeline({ materialId: secondUpload.materialId });
+    await confirmMaterial(user.session, upload.materialId);
+    await runPipeline({ materialId: upload.materialId });
 
-    const first = await user.session.post('/api/lessons/generate', {
-      title: 'Daily lesson',
-      materialIds: [firstUpload.materialId],
-    });
-    expect(first.status).toBe(202);
-    const view = first.body as { requestId: string };
-    await runGenerationRequest(view.requestId, user.user.id);
+    // Free plan: three daily allowance points (TODO step 15). Exhaust them
+    // directly (each upload costs two rate-limit points, so flooding real
+    // generations would trip the upload limiter first).
+    const { reserveLessonGeneration } = await import('@/lib/plans/allowance');
+    for (let index = 0; index < 3; index += 1) {
+      const reservation = await reserveLessonGeneration(user.user.id, 3);
+      expect(reservation.reserved).toBe(true);
+    }
 
-    const poll = await user.session.get(`/api/lesson-requests/${view.requestId}`);
-    const lessonId = (poll.body as { lessonId: string | null }).lessonId as string;
-    expect(lessonId).toBeTruthy();
-
-    // Storage frees on delete — the cascade removes the source material too.
-    const removed = await user.session.delete(`/api/lessons/${lessonId}`);
-    expect(removed.status).toBe(204);
-
-    // ...but the daily allowance was consumed: blocked even with a free slot
-    // and a second ready material.
+    // The lesson storage slots are free (0/3 used), yet the fourth same-day
+    // generation is blocked by the allowance alone.
     const again = await user.session.post('/api/lessons/generate', {
-      title: 'Same-day lesson',
-      materialIds: [secondUpload.materialId],
+      title: 'Fourth generation today',
+      materialIds: [upload.materialId],
     });
     expect(again.status).toBe(403);
     const body = again.body as QuotaEnvelope;
@@ -303,7 +289,7 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
     await setPlan(user, 'plus');
     const upgraded = await user.session.post('/api/lessons/generate', {
       title: 'Upgraded lesson',
-      materialIds: [secondUpload.materialId],
+      materialIds: [upload.materialId],
     });
     expect(upgraded.status).toBe(202);
   });
@@ -370,11 +356,11 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
     const lessonId = (poll.body as { lessonId: string | null }).lessonId as string;
     expect(lessonId).toBeTruthy();
 
-    // Free plan: the allowance is exhausted (1/1 used), yet regeneration is exempt.
+    // Free plan: one of three daily points used, yet regeneration is exempt.
     const usage = await user.session.get('/api/me/usage');
     expect((usage.body as { generations: { used: number; limit: number } }).generations).toMatchObject({
       used: 1,
-      limit: 1,
+      limit: 3,
     });
 
     const regenerated = await user.session.post(`/api/lessons/${lessonId}/regenerate`, {

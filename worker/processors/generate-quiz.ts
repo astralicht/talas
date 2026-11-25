@@ -29,18 +29,15 @@ export async function processGenerateQuiz(payload: GenerateQuizJob): Promise<voi
     message: string,
     detail?: unknown,
   ): Promise<void> => {
-    await Quiz.updateOne(
-      { _id: claimed._id, userId: userObjectId },
-      {
-        $set: {
-          status: 'failed',
-          leaseUntil: null,
-          lastErrorCode: code,
-          lastErrorMessage: message,
-        },
-      },
-    ).exec();
-    await auditEvents.quizFailed({ userId, correlationId, metadata: { quizId, code } });
+    // Terminal failures leave no row behind (TODO step 15): the quiz is
+    // deleted, never listed, and its storage slot frees immediately. The
+    // reason lives in the audit event; the allowance point is refunded.
+    await Quiz.deleteOne({ _id: claimed._id, userId: userObjectId }).exec();
+    await auditEvents.quizFailed({
+      userId,
+      correlationId,
+      metadata: { quizId, code, message },
+    });
     try {
       await refundLessonGeneration(userId);
     } catch (refundError) {

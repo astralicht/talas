@@ -6,6 +6,7 @@ import {
   recordSpend,
 } from './budget';
 import { lessonModelCandidates, type LessonModel } from './provider';
+import { withProviderRetries } from './provider-retry';
 import { getEnv } from '@/lib/env';
 import {
   buildQuizBatchPrompt,
@@ -197,7 +198,10 @@ export async function generateQuiz(input: GenerateQuizInput): Promise<GenerateQu
   const titleToLesson = new Map(input.lessons.map((lesson) => [lesson.title, lesson]));
   const questions: GeneratedQuizQuestion[] = [];
   const seenQuestions = new Set<string>();
-  const providerUsed = { provider: primary.provider, model: primary.modelId };
+  const providerUsed: { provider: string; model: string } = {
+    provider: primary.provider,
+    model: primary.modelId,
+  };
 
   const plannedBatches = Math.ceil(input.itemCount / QUESTIONS_PER_BATCH);
   const maxBatches = plannedBatches + 2;
@@ -208,42 +212,52 @@ export async function generateQuiz(input: GenerateQuizInput): Promise<GenerateQu
       const count = Math.min(QUESTIONS_PER_BATCH, remaining);
       const avoidTopics = questions.slice(-10).map((question) => normalizeQuestion(question.question).slice(0, 80));
 
-      let lastError: unknown = null;
-      let batchObject: unknown = null;
-      for (const candidate of ordered) {
-        try {
-          const result = await callModel(candidate, input.lessons, count, avoidTopics);
-          batchObject = result.object;
-          await recordSpend(
-            input.userId,
-            result.usage?.inputTokens ?? 0,
-            result.usage?.outputTokens ?? 0,
+      // Bounded retries per candidate absorb the endpoint's intermittent
+      // empty completions; budget exhaustion is terminal.
+      let batchObject: z.infer<typeof quizBatchSchema> | undefined;
+      try {
+        const outcome = await withProviderRetries(
+          ordered,
+          async (candidate) => {
+            const result = await callModel(candidate, input.lessons, count, avoidTopics);
+            const parsed = quizBatchSchema.safeParse(result.object);
+            if (!parsed.success) {
+              // A malformed batch is a model-quality transient: retry before
+              // falling back to the next provider.
+              throw new Error('malformed batch');
+            }
+            await recordSpend(
+              input.userId,
+              result.usage?.inputTokens ?? 0,
+              result.usage?.outputTokens ?? 0,
+            );
+            return parsed.data;
+          },
+          {
+            isTerminal: (error) =>
+              error instanceof BudgetExceededError ||
+              (error instanceof QuizGenerationError && error.code === 'budget_exceeded'),
+          },
+        );
+        batchObject = outcome.result;
+        providerUsed.provider = outcome.provider;
+        providerUsed.model = outcome.modelId;
+      } catch (error) {
+        if (error instanceof BudgetExceededError) {
+          throw new QuizGenerationError(
+            'budget_exceeded',
+            'The daily lesson generation limit has been reached.',
+            { cause: error },
           );
-          providerUsed.provider = candidate.provider;
-          providerUsed.model = candidate.modelId;
-          lastError = null;
-          break;
-        } catch (error) {
-          lastError = error;
         }
-      }
-      if (batchObject === null) {
         throw new QuizGenerationError(
           'provider_unavailable',
           'The AI provider is temporarily unavailable.',
-          { cause: lastError },
+          { cause: error },
         );
       }
 
-      const parsed = quizBatchSchema.safeParse(batchObject);
-      if (!parsed.success) {
-        throw new QuizGenerationError(
-          'malformed_model_output',
-          'The model returned an invalid quiz batch.',
-        );
-      }
-
-      for (const raw of parsed.data.questions) {
+      for (const raw of batchObject.questions) {
         const key = normalizeQuestion(raw.question);
         if (seenQuestions.has(key)) continue;
         seenQuestions.add(key);

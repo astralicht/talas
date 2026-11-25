@@ -3,8 +3,14 @@ import request from 'supertest';
 export class TestSession {
   private cookieJar = new Map<string, string>();
   private currentCsrf: string | null = null;
+  private forwardedFor: string | null = null;
 
   constructor(private readonly url: string) {}
+
+  /** Spoofs the client IP so per-IP limiters (auth register) see distinct machines. */
+  setForwardedFor(ip: string): void {
+    this.forwardedFor = ip;
+  }
 
   private cookieHeader(): string {
     return [...this.cookieJar.entries()].map(([name, value]) => `${name}=${value}`).join('; ');
@@ -33,6 +39,7 @@ export class TestSession {
       method.toLowerCase() as 'get' | 'post' | 'put' | 'patch' | 'delete'
     ](path) as request.Test;
     test.set('Cookie', this.cookieHeader());
+    if (this.forwardedFor) test.set('X-Forwarded-For', this.forwardedFor);
     test.set('Accept', 'application/json');
     if (options.auth) {
       await this.ensureCsrf();
@@ -147,6 +154,10 @@ export async function registerVerifiedUser(
   overrides: { email?: string; password?: string } = {},
 ): Promise<RegisteredUser> {
   const session = new TestSession(url);
+  // A unique spoofed client per registration: the per-IP auth limiter (10
+  // registrations / 15 min) would otherwise 429 integration suites that
+  // create many accounts in one run — each user simulates its own machine.
+  session.setForwardedFor(`10.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}`);
   const email = overrides.email ?? `user-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}@example.com`;
   const password = overrides.password ?? 'correct horse battery staple';
 

@@ -17,8 +17,7 @@ interface CreateResponse {
 
 interface QuizView {
   id: string;
-  status: 'queued' | 'processing' | 'ready' | 'failed';
-  lastErrorMessage: string | null;
+  status: 'queued' | 'processing' | 'ready';
 }
 
 const POLL_INTERVAL_MS = 3_000;
@@ -86,11 +85,6 @@ export function NewQuizForm({
               resolve();
               return;
             }
-            if (view.status === 'failed') {
-              stopPolling();
-              reject(new Error(view.lastErrorMessage ?? 'The quiz generation failed. Try again.'));
-              return;
-            }
             if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
               stopPolling();
               reject(
@@ -105,7 +99,17 @@ export function NewQuizForm({
             );
           } catch (cause) {
             stopPolling();
-            reject(cause instanceof Error ? cause : new Error('Polling failed. Try again.'));
+            // A 404 means the worker removed the quiz at terminal failure
+            // (TODO step 15) — surface it as a retryable generation failure.
+            reject(
+              new Error(
+                cause instanceof ApiError && cause.status === 404
+                  ? 'The quiz could not be generated. Try again.'
+                  : cause instanceof Error
+                    ? cause.message
+                    : 'Polling failed. Try again.',
+              ),
+            );
           }
         })();
       }, POLL_INTERVAL_MS);

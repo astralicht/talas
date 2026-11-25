@@ -219,17 +219,18 @@ describe('lesson generation', () => {
     let calls = 0;
     setGenerateObjectForTests(() => {
       calls += 1;
-      if (calls === 1) return Promise.resolve({ object: { nonsense: true } });
+      // The primary burns all three retry attempts before the fallback runs.
+      if (calls <= 3) return Promise.resolve({ object: { nonsense: true } });
       return Promise.resolve({ object: validLesson });
     });
     try {
       const output = await generateLesson(input);
-      expect(calls).toBe(2);
+      expect(calls).toBe(4);
       expect(output.provider).toBe('google');
     } finally {
       setGenerateObjectForTests(null);
     }
-  });
+  }, 20_000);
 
   it('fails safely when the schema rejects every provider response', async () => {
     const { setGenerateObjectForTests } = await import('@/lib/ai/generate-lesson');
@@ -241,7 +242,7 @@ describe('lesson generation', () => {
     } finally {
       setGenerateObjectForTests(null);
     }
-  });
+  }, 20_000);
 
   it('reports provider_unavailable under fault injection', async () => {
     process.env.AI_FAULT_INJECTION = 'true';

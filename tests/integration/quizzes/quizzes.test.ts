@@ -4,7 +4,7 @@ import { startTestApp, stopTestApp } from '../../helpers/app-server';
 import { registerVerifiedUser } from '../../helpers/client';
 import { resetPipelineState, runQuizGeneration } from '../../helpers/pipeline';
 import { Lesson } from '@/lib/db/models/lesson';
-import { Quiz } from '@/lib/db/models/quiz';
+import { Quiz, type IQuiz } from '@/lib/db/models/quiz';
 import { reserveLessonGeneration, resetAllowanceForTests } from '@/lib/plans/allowance';
 
 let appUrl: string;
@@ -176,6 +176,152 @@ describe('quiz generation (TODO step 14)', () => {
     expect(await Quiz.countDocuments({ userId: new Types.ObjectId(user.user.id) }).exec()).toBe(0);
   });
 
+  it('filters, searches, and sorts the quiz list (TODO step 15)', async () => {
+    const user = await registerVerifiedUser(appUrl);
+    const lessonId = await seedReadyLesson(user.user.id, 'List lesson');
+    const make = async (title: string, status: 'ready' | 'queued' | 'processing') => {
+      await Quiz.create({
+        userId: new Types.ObjectId(user.user.id),
+        title,
+        itemCount: 20,
+        sourceLessonIds: [new Types.ObjectId(lessonId)],
+        status,
+        questions:
+          status === 'ready'
+            ? [{ question: 'Q', options: ['A', 'B', 'C', 'D'], correctIndex: 0, explanation: null, sourceLessonId: null, sourceLessonTitle: null }]
+            : [],
+      });
+    };
+    await make('Algebra basics quiz', 'ready');
+    await make('Calculus practice', 'ready');
+    await make('Zoology warm-up', 'processing');
+
+    const ready = await user.session.get('/api/quizzes?status=ready');
+    const readyList = ready.body as { data: Array<{ title: string }> };
+    expect(readyList.data.map((quiz) => quiz.title).sort()).toEqual(['Algebra basics quiz', 'Calculus practice']);
+
+    const generating = await user.session.get('/api/quizzes?status=generating');
+    expect((generating.body as { data: Array<{ title: string }> }).data.map((quiz) => quiz.title)).toEqual([
+      'Zoology warm-up',
+    ]);
+
+    const searched = await user.session.get('/api/quizzes?q=calculus');
+    expect((searched.body as { data: Array<{ title: string }> }).data.map((quiz) => quiz.title)).toEqual([
+      'Calculus practice',
+    ]);
+
+    const byTitle = await user.session.get('/api/quizzes?sort=title');
+    expect((byTitle.body as { data: Array<{ title: string }> }).data.map((quiz) => quiz.title)).toEqual([
+      'Algebra basics quiz',
+      'Calculus practice',
+      'Zoology warm-up',
+    ]);
+
+    // Failed attempts never exist to be listed or filtered.
+    expect(await Quiz.countDocuments({ userId: new Types.ObjectId(user.user.id), status: 'failed' }).exec()).toBe(0);
+  });
+
+  it('submits attempts, grades server-side, and supports unlimited retakes', async () => {
+    const user = await registerVerifiedUser(appUrl);
+    const lessonId = await seedReadyLesson(user.user.id, 'Attempt lesson');
+    const created = await user.session.post('/api/quizzes', {
+      title: 'Attempt quiz',
+      itemCount: 20,
+      lessonIds: [lessonId],
+    });
+    expect(created.status).toBe(201);
+    const quizId = (created.body as { id: string }).id;
+    await runQuizGeneration(quizId, user.user.id);
+
+    // The fake model always sets correctIndex 0 — answer accordingly.
+    const answersFor = (pick: (questionIndex: number) => number) =>
+      Array.from({ length: 20 }, (_, questionIndex) => pick(questionIndex));
+
+    // First attempt: all correct.
+    const first = await user.session.post(`/api/quizzes/${quizId}/submit`, {
+      answers: answersFor(() => 0),
+    });
+    expect(first.status).toBe(201);
+    const firstView = first.body as {
+      attemptNumber: number;
+      score: { correct: number; total: number };
+      questions: Array<{ yourAnswer: number | null; correctIndex: number; correct: boolean; explanation: string | null }>;
+      history: Array<{ attemptNumber: number }>;
+    };
+    expect(firstView.attemptNumber).toBe(1);
+    expect(firstView.score).toEqual({ correct: 20, total: 20 });
+    expect(firstView.questions[0]?.correct).toBe(true);
+    // The reveal arrives only now — explanations included post-submission.
+    expect(firstView.questions[0]?.explanation).toBeTruthy();
+
+    // Second attempt: half skipped (-1), half wrong — unlimited retakes.
+    const second = await user.session.post(`/api/quizzes/${quizId}/submit`, {
+      answers: answersFor((questionIndex) => (questionIndex % 2 === 0 ? -1 : 2)),
+    });
+    expect(second.status).toBe(201);
+    const secondView = second.body as {
+      attemptNumber: number;
+      score: { correct: number; total: number };
+      history: Array<{ attemptNumber: number; scoreCorrect: number }>;
+    };
+    expect(secondView.attemptNumber).toBe(2);
+    expect(secondView.score.correct).toBe(0);
+    expect(secondView.history).toHaveLength(2);
+    expect(secondView.history[0]).toMatchObject({ attemptNumber: 1, scoreCorrect: 20 });
+
+    // ?attempt=1 replays the first attempt's reveal.
+    const replay = await user.session.get(`/api/quizzes/${quizId}?attempt=1`);
+    const replayView = replay.body as {
+      attemptNumber: number;
+      score: { correct: number };
+      questions: Array<{ yourAnswer: number | null; correctIndex: number }>;
+    };
+    expect(replayView.attemptNumber).toBe(1);
+    expect(replayView.score.correct).toBe(20);
+    expect(replayView.questions[0]?.yourAnswer).toBe(0);
+
+    // History is stored: two attempts on the same quiz.
+    const stored = (await Quiz.findById(quizId).lean<IQuiz>().exec())?.attempts ?? [];
+    expect(stored).toHaveLength(2);
+    expect(stored[1]?.answers.some((answer: number) => answer === -1)).toBe(true);
+  });
+
+  it('rejects malformed submissions and answers foreign ids non-revealingly', async () => {
+    const owner = await registerVerifiedUser(appUrl);
+    const lessonId = await seedReadyLesson(owner.user.id, 'Submit validation lesson');
+    const created = await owner.session.post('/api/quizzes', {
+      title: 'Validation quiz',
+      itemCount: 20,
+      lessonIds: [lessonId],
+    });
+    expect(created.status).toBe(201);
+    const quizId = (created.body as { id: string }).id;
+    await runQuizGeneration(quizId, owner.user.id);
+
+    const wrongLength = await owner.session.post(`/api/quizzes/${quizId}/submit`, {
+      answers: [0, 0],
+    });
+    expect(wrongLength.status).toBe(400);
+
+    const outOfRange = await owner.session.post(`/api/quizzes/${quizId}/submit`, {
+      answers: Array.from({ length: 20 }, () => 7),
+    });
+    expect(outOfRange.status).toBe(400);
+
+    const stranger = await registerVerifiedUser(appUrl);
+    const foreign = await stranger.session.post(`/api/quizzes/${quizId}/submit`, {
+      answers: Array.from({ length: 20 }, () => 0),
+    });
+    expect(foreign.status).toBe(404);
+
+    // Submitting before the quiz exists answers the same 404.
+    const missing = await stranger.session.post(
+      `/api/quizzes/${new Types.ObjectId().toHexString()}/submit`,
+      { answers: [0] },
+    );
+    expect(missing.status).toBe(404);
+  });
+
   it('refunds the daily allowance when generation fails terminally', async () => {
     const user = await registerVerifiedUser(appUrl);
     const lessonId = await seedReadyLesson(user.user.id, 'Refund lesson');
@@ -193,7 +339,8 @@ describe('quiz generation (TODO step 14)', () => {
       const quizId = (created.body as { id: string }).id;
       await runQuizGeneration(quizId, user.user.id);
       const view = await user.session.get(`/api/quizzes/${quizId}`);
-      expect((view.body as { status: string }).status).toBe('failed');
+      // Terminal failures leave no row behind (TODO step 15): 404 + refund.
+      expect(view.status).toBe(404);
       // The reserved point came back: failed attempts never consume it.
       const usage = await reserveLessonGeneration(user.user.id, 1);
       expect(usage.reserved).toBe(true);
