@@ -35,12 +35,15 @@ export const GET = route(
     if (!quiz) throw errors.notFound();
     const typed = quiz as unknown as Parameters<typeof serializeQuiz>[0];
 
+    // Pre-step-16 rows may lack the attempts array entirely (lean reads skip
+    // schema defaults) — guard everywhere.
+    const attempts = typed.attempts ?? [];
     if (typed.status !== 'ready') return json(serializeQuiz(typed));
-    if (typed.attempts.length === 0) return json(serializeQuizReady(typed));
+    if (attempts.length === 0) return json(serializeQuizReady({ ...typed, attempts: [] }));
 
-    const requested = query.attempt ?? typed.attempts.length;
-    const attemptIndex = Math.min(Math.max(requested - 1, 0), typed.attempts.length - 1);
-    return json(serializeQuizAttemptResults(typed, attemptIndex));
+    const requested = query.attempt ?? attempts.length;
+    const attemptIndex = Math.min(Math.max(requested - 1, 0), attempts.length - 1);
+    return json(serializeQuizAttemptResults({ ...typed, attempts }, attemptIndex));
   },
 );
 

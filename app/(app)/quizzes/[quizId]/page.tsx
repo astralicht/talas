@@ -56,18 +56,20 @@ export default async function QuizViewPage({
         <QuizExperience
           quizId={quiz._id.toHexString()}
           itemCount={quiz.itemCount}
-          questions={quiz.questions.map((question) => ({
+          questions={(quiz.questions ?? []).map((question) => ({
             question: question.question,
             options: [...question.options],
           }))}
-          attempts={quiz.attempts.map((attempt, index) => ({
+          attempts={(quiz.attempts ?? []).map((attempt, index) => ({
             attemptNumber: index + 1,
             scoreCorrect: attempt.scoreCorrect,
             scoreTotal: attempt.scoreTotal,
             submittedAt: attempt.submittedAt.toISOString(),
           }))}
           latestResults={
-            quiz.attempts.length > 0 ? serializeQuizAttemptResults(quiz, quiz.attempts.length - 1) : null
+            (quiz.attempts ?? []).length > 0
+              ? serializeQuizAttemptResults({ ...quiz, attempts: quiz.attempts ?? [] }, (quiz.attempts ?? []).length - 1)
+              : null
           }
         />
       )}
