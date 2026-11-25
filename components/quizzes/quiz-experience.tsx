@@ -217,7 +217,20 @@ export function QuizExperience({
             ))}
           </div>
         ) : null}
-        <Button type="button" variant="outline" size="sm" onClick={() => setMode('interactive')} data-testid="quiz-retake">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            // A retake starts on a blank answer sheet: clear the previous
+            // attempt's selections and any submission error.
+            setSelections(Array.from({ length: itemCount }, () => null));
+            setError(null);
+            setMode('interactive');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          data-testid="quiz-retake"
+        >
           Retake quiz
         </Button>
       </div>
