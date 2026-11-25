@@ -113,6 +113,7 @@ export function QuizExperience({
   }
 
   if (mode === 'interactive') {
+    const allAnswered = answered === itemCount;
     return (
       <div className="space-y-4">
         {questions.map((question, questionIndex) => (
@@ -157,12 +158,14 @@ export function QuizExperience({
 
         <div className="border-border bg-card sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-full border px-5 py-3 shadow-sm">
           <span className="text-muted-foreground text-sm" data-testid="quiz-answered-count">
-            Answered {answered}/{itemCount}
+            {allAnswered
+              ? `All ${itemCount} answered — ready to submit`
+              : `Answered ${answered}/${itemCount} — answer every question to submit`}
           </span>
           <Button
             type="button"
             onClick={() => void onSubmit()}
-            disabled={pending}
+            disabled={pending || !allAnswered}
             data-testid="quiz-submit"
           >
             {pending ? 'Submitting…' : 'Submit quiz'}
@@ -235,8 +238,6 @@ export function QuizExperience({
             <p className="mt-1 text-xs font-semibold">
               {result.correct ? (
                 <span className="text-emerald-700 dark:text-emerald-300">Correct</span>
-              ) : result.yourAnswer === null ? (
-                <span className="text-amber-700 dark:text-amber-300">Skipped</span>
               ) : (
                 <span className="text-red-700 dark:text-red-300">Incorrect</span>
               )}

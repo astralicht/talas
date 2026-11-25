@@ -30,7 +30,7 @@ export const POST = route(
     if (body.answers.length !== quiz.itemCount) {
       throw errors.validation(
         undefined,
-        `The submission must carry exactly ${quiz.itemCount} answers (one per question).`,
+        `The submission must carry exactly ${quiz.itemCount} answers (one per question), all answered.`,
       );
     }
 

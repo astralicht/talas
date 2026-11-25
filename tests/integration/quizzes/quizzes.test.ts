@@ -254,9 +254,9 @@ describe('quiz generation (TODO step 14)', () => {
     // The reveal arrives only now — explanations included post-submission.
     expect(firstView.questions[0]?.explanation).toBeTruthy();
 
-    // Second attempt: half skipped (-1), half wrong — unlimited retakes.
+    // Second attempt: all answered, mostly wrong — unlimited retakes.
     const second = await user.session.post(`/api/quizzes/${quizId}/submit`, {
-      answers: answersFor((questionIndex) => (questionIndex % 2 === 0 ? -1 : 2)),
+      answers: answersFor((questionIndex) => (questionIndex % 2 === 0 ? 0 : 2)),
     });
     expect(second.status).toBe(201);
     const secondView = second.body as {
@@ -265,7 +265,7 @@ describe('quiz generation (TODO step 14)', () => {
       history: Array<{ attemptNumber: number; scoreCorrect: number }>;
     };
     expect(secondView.attemptNumber).toBe(2);
-    expect(secondView.score.correct).toBe(0);
+    expect(secondView.score.correct).toBe(10);
     expect(secondView.history).toHaveLength(2);
     expect(secondView.history[0]).toMatchObject({ attemptNumber: 1, scoreCorrect: 20 });
 
@@ -280,10 +280,10 @@ describe('quiz generation (TODO step 14)', () => {
     expect(replayView.score.correct).toBe(20);
     expect(replayView.questions[0]?.yourAnswer).toBe(0);
 
-    // History is stored: two attempts on the same quiz.
+    // History is stored: two attempts on the same quiz, all answers valid.
     const stored = (await Quiz.findById(quizId).lean<IQuiz>().exec())?.attempts ?? [];
     expect(stored).toHaveLength(2);
-    expect(stored[1]?.answers.some((answer: number) => answer === -1)).toBe(true);
+    expect(stored[1]?.answers.every((answer: number) => answer >= 0 && answer <= 3)).toBe(true);
   });
 
   it('rejects malformed submissions and answers foreign ids non-revealingly', async () => {
@@ -302,6 +302,12 @@ describe('quiz generation (TODO step 14)', () => {
       answers: [0, 0],
     });
     expect(wrongLength.status).toBe(400);
+
+    // Skipped questions (-1) are rejected: every question must be answered.
+    const skipped = await owner.session.post(`/api/quizzes/${quizId}/submit`, {
+      answers: Array.from({ length: 20 }, (_, index) => (index % 2 === 0 ? 0 : -1)),
+    });
+    expect(skipped.status).toBe(400);
 
     const outOfRange = await owner.session.post(`/api/quizzes/${quizId}/submit`, {
       answers: Array.from({ length: 20 }, () => 7),

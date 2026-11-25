@@ -78,8 +78,8 @@ const attemptSchema = new Schema<IQuizAttempt>(
       validate: {
         validator: (value: unknown) =>
           Array.isArray(value) &&
-          value.every((entry) => typeof entry === 'number' && Number.isInteger(entry) && entry >= -1 && entry <= 3),
-        message: 'Every answer is an option index (0-3) or -1 for skipped',
+          value.every((entry) => typeof entry === 'number' && Number.isInteger(entry) && entry >= 0 && entry <= 3),
+        message: 'Every answer is an option index (0-3); all questions must be answered',
       },
     },
     scoreCorrect: { type: Number, required: true, min: 0 },

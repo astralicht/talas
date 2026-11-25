@@ -655,6 +655,11 @@ before the matching submission.
       with spoofed per-registration client IPs, the allowance-separation
       test now exhausts the allowance directly, and one stale contract
       assertion moved to the new allowance numbers.
+- [x] Step 16.1 (same day): submissions require EVERY question answered —
+      the submit schema rejects skips (-1) with a 400, the sticky bar
+      disables Submit until all N are answered, and the grading/results
+      paths drop the skip semantics. Gates re-run in the worktree: build ✓,
+      150/150 unit+security, 64/64 integration, 49/49 contract.
 
 ## Step 17 — Output cap doubled to 8192 tokens (DONE 2026-11-26)
 

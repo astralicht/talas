@@ -39,13 +39,14 @@ export const quizAttemptQuerySchema = strictObject({
 });
 
 /**
- * Request body for POST /api/quizzes/{id}/submit (TODO step 16): one option
- * index per question; -1 marks a skipped question. The route checks the
- * length against the quiz's itemCount.
+ * Request body for POST /api/quizzes/{id}/submit (TODO step 16 + 16.1): one
+ * option index (0-3) per question — every question must be answered; skipped
+ * entries are rejected with a validation error. The route checks the length
+ * against the quiz's itemCount.
  */
 export const submitQuizSchema = strictObject({
   answers: z
-    .array(z.number().int().min(-1).max(3))
+    .array(z.number().int().min(0).max(3))
     .min(1)
     .max(50),
 });

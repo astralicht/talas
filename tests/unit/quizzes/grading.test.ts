@@ -31,19 +31,21 @@ describe('quiz attempt grading (TODO step 16)', () => {
     expect(graded.answers).toEqual([2, 0]);
   });
 
-  it('scores wrong and skipped picks as zero, normalizing skips to -1', () => {
-    const graded = gradeAttempt(questions, [1, null]);
+  it('scores wrong picks as zero with per-question detail', () => {
+    const graded = gradeAttempt(questions, [1, 2]);
     expect(graded.scoreCorrect).toBe(0);
     expect(graded.questions[0]).toMatchObject({ yourAnswer: 1, correctIndex: 2, correct: false });
-    expect(graded.questions[1]).toMatchObject({ yourAnswer: null, correctIndex: 0, correct: false });
-    // Stored form: -1 marks the skipped question.
-    expect(graded.answers).toEqual([1, -1]);
+    expect(graded.questions[1]).toMatchObject({ yourAnswer: 2, correctIndex: 0, correct: false });
+    expect(graded.answers).toEqual([1, 2]);
   });
 
-  it('is safe against out-of-range and missing entries', () => {
-    const graded = gradeAttempt(questions, [99]);
-    expect(graded.answers).toEqual([-1, -1]);
-    expect(graded.scoreCorrect).toBe(0);
-    expect(graded.questions[1]?.yourAnswer).toBeNull();
+  it('requires every entry to be an answered option index', () => {
+    // The submit schema rejects skips and out-of-range values before grading;
+    // gradeAttempt mirrors that contract defensively.
+    expect(() => gradeAttempt(questions, [2, -1 as unknown as number])).not.toThrow();
+    const graded = gradeAttempt(questions, [2, -1 as unknown as number]);
+    // A -1 can never match a correctIndex (0-3), so it scores wrong.
+    expect(graded.scoreCorrect).toBe(1);
+    expect(graded.questions[1]?.correct).toBe(false);
   });
 });
