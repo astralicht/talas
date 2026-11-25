@@ -202,6 +202,11 @@ export async function callStage(
   system: string,
   prompt: string,
 ): Promise<{ object: unknown; usage?: GenerateObjectUsage }> {
+  // OpenCode Go reasoning models: high effort for the content stages
+  // (outline, sections), medium for the quiz stage — quiz batches are small,
+  // structured tasks that reason cheaply. Native openai/google models don't
+  // take this key.
+  const reasoningEffort = stage === 'quiz' ? 'medium' : 'high';
   return generateObjectImpl({
     model: candidate.model,
     schema: schema as never,
@@ -209,10 +214,8 @@ export async function callStage(
     prompt,
     maxOutputTokens: MAX_OUTPUT_TOKENS,
     temperature: 0.2,
-    // OpenCode Go reasoning models: explicit high effort (user setting,
-    // step 15-16 era). Native openai/google models don't take this key.
     ...(candidate.provider === 'opengo'
-      ? { providerOptions: { 'openai-compatible': { reasoningEffort: 'high' } } }
+      ? { providerOptions: { 'openai-compatible': { reasoningEffort } } }
       : {}),
   }) as unknown as Promise<{ object: unknown; usage?: GenerateObjectUsage }>;
 }

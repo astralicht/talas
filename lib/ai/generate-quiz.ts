@@ -155,9 +155,12 @@ async function callModel(
     prompt: buildQuizBatchPrompt({ lessons, count, avoidTopics }),
     maxOutputTokens: MAX_OUTPUT_TOKENS,
     temperature: 0.3,
-    // OpenCode Go reasoning models: explicit high effort (user setting).
+    // OpenCode Go reasoning models: medium effort — quiz batches are small,
+    // structured tasks that reason cheaply (probe: ~400 reasoning tokens at
+    // high), so medium saves latency without hurting quality. Native
+    // openai/google models don't take this key.
     ...(candidate.provider === 'opengo'
-      ? { providerOptions: { 'openai-compatible': { reasoningEffort: 'high' } } }
+      ? { providerOptions: { 'openai-compatible': { reasoningEffort: 'medium' } } }
       : {}),
   });
 }
