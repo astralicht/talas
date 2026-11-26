@@ -24,7 +24,7 @@ export const ALLOWED_MIME_TYPES = [
 ] as const;
 export type AllowedMime = (typeof ALLOWED_MIME_TYPES)[number];
 
-export const MAX_UPLOAD_BYTES = 26_214_400;
+export const MAX_UPLOAD_BYTES = 157_286_400; // 150 MB
 
 export interface IMaterial {
   _id: mongoose.Types.ObjectId;

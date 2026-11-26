@@ -153,8 +153,8 @@ describe('material upload route (proxied transport, constitution v2.4.0)', () =>
     const { materialId } = await presign(user.session, TEXT_MATERIAL_BYTES.byteLength);
 
     const before = await user.session.get('/api/me/usage');
-    const usedBefore = (before.body as { materials: { used: number } }).materials.used;
-    expect(usedBefore).toBe(1);
+    const usedBefore = (before.body as { storage: { used: number } }).storage.used;
+    expect(usedBefore).toBeGreaterThan(0);
 
     const cancelled = await user.session.delete(`/api/materials/${materialId}`);
     expect(cancelled.status).toBe(204);
@@ -163,7 +163,7 @@ describe('material upload route (proxied transport, constitution v2.4.0)', () =>
     expect(gone.status).toBe(404);
 
     const after = await user.session.get('/api/me/usage');
-    expect((after.body as { materials: { used: number } }).materials.used).toBe(0);
+    expect((after.body as { storage: { used: number } }).storage.used).toBe(0);
   });
 });
 

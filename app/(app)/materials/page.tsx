@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session';
 import { MaterialRepository } from '@/lib/db/repositories/material-repository';
 import { planLimitsFor } from '@/lib/plans';
-import { countUserMaterials } from '@/lib/plans/usage';
+import { sumUserStorageBytes } from '@/lib/plans/usage';
 import { MaterialList } from '@/components/materials/material-list';
 import { ListToolbar } from '@/components/ui/list-toolbar';
 import { buttonVariants } from '@/components/ui/button';
@@ -63,7 +63,9 @@ export default async function MaterialsPage({
   // Server-rendered plan quota (constitution v2.3.0): the badge counts the
   // same live rows the enforcement checks count.
   const limits = planLimitsFor(user.plan);
-  const materialsUsed = await countUserMaterials(user.id);
+  const storageUsed = await sumUserStorageBytes(user.id);
+  const storagePct = limits.storageBytes > 0 ? (storageUsed / limits.storageBytes) * 100 : 0;
+  const storageLabel = (b: number) => (b / (1024 * 1024 * 1024)).toFixed(2);
 
   const pages = Math.max(1, Math.ceil(total / query.limit));
   const page = Math.min(query.page, pages);
@@ -93,10 +95,10 @@ export default async function MaterialsPage({
           <span
             data-testid="materials-quota"
             className={`border-border bg-card text-muted-foreground rounded-full border px-3 py-1.5 text-xs font-medium ${
-              materialsUsed >= limits.materials ? 'text-amber-700 dark:text-amber-300' : ''
+              storagePct >= 90 ? 'text-amber-700 dark:text-amber-300' : ''
             }`}
           >
-            {materialsUsed}/{limits.materials} materials · {user.plan} plan
+            {storageLabel(storageUsed)} / {storageLabel(limits.storageBytes)} GB · {user.plan} plan
           </span>
           {user.emailVerified ? (
             <Link

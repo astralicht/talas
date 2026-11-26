@@ -10,10 +10,10 @@ export type PlanId = (typeof PLAN_IDS)[number];
 export const DEFAULT_PLAN: PlanId = 'free';
 
 export interface PlanLimits {
-  /** Maximum non-deleted materials stored at once. */
-  materials: number;
   /** Maximum extracted-text characters per material. */
   maxMaterialChars: number;
+  /** Maximum total stored bytes across non-deleted materials. */
+  storageBytes: number;
   /** Maximum non-deleted lessons stored at once. */
   lessons: number;
   /**
@@ -30,17 +30,17 @@ export interface PlanLimits {
 
 export const PLANS: Record<PlanId, PlanLimits> = {
   free: {
-    materials: 5,
-    lessons: 3,
     maxMaterialChars: 10_000,
+    storageBytes: 1 * 1024 * 1024 * 1024, // 1 GiB
+    lessons: 3,
     dailyLessonGenerations: 3,
     quizzes: 3,
     maxQuizSources: 3,
   },
   plus: {
-    materials: 25,
-    lessons: 7,
     maxMaterialChars: 10_000,
+    storageBytes: 5 * 1024 * 1024 * 1024, // 5 GiB
+    lessons: 7,
     dailyLessonGenerations: 7,
     quizzes: 5,
     maxQuizSources: 7,
@@ -49,8 +49,8 @@ export const PLANS: Record<PlanId, PlanLimits> = {
 
 /** Machine-readable failure codes surfaced through the 403 quota envelope. */
 export const PLAN_FAILURE_CODES = {
-  materials: 'plan_material_limit',
   chars: 'plan_char_limit',
+  storage: 'plan_storage_limit',
   lessons: 'plan_lesson_limit',
   generations: 'plan_generation_limit',
   quizzes: 'plan_quiz_limit',

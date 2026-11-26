@@ -25,7 +25,7 @@ function oversizedMarkdown(): Buffer {
 }
 
 /** Seeds material rows directly so quota tests stay under the upload rate limits. */
-async function seedMaterials(user: RegisteredUser, count: number): Promise<string[]> {
+async function seedMaterials(user: RegisteredUser, count: number, sizeBytes = 100): Promise<string[]> {
   const ids: string[] = [];
   for (let index = 0; index < count; index += 1) {
     const materialId = new Types.ObjectId();
@@ -35,7 +35,7 @@ async function seedMaterials(user: RegisteredUser, count: number): Promise<strin
       originalFilename: `seeded-${index}.md`,
       storageKey: `materials/${user.user.id}/${materialId.toHexString()}`,
       declaredMime: 'text/markdown',
-      sizeBytes: 100,
+      sizeBytes,
       status: 'ready',
       scanResult: 'clean',
       charCount: 100,
@@ -66,9 +66,9 @@ interface QuotaEnvelope {
 }
 
 describe('plan-based feature limits (constitution v2.3.0)', () => {
-  it('blocks the presign when the material storage quota is full', async () => {
+  it('blocks the presign when the storage quota is full', async () => {
     const user = await registerVerifiedUser(appUrl);
-    await seedMaterials(user, 5);
+    await seedMaterials(user, 8, 150 * 1024 * 1024);
 
     const response = await presign(user.session, 'blocked.md');
     expect(response.status).toBe(403);
@@ -77,28 +77,19 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
     expect(body.correlationId).toBeTruthy();
     expect(body.message).toContain('free');
     expect(body.details).toMatchObject({
-      reason: 'plan_material_limit',
-      used: 5,
-      limit: 5,
+      reason: 'plan_storage_limit',
       purged: 0,
     });
   });
 
-  it('frees a slot when a material is deleted', async () => {
+  it('frees space when a material is deleted', async () => {
     const user = await registerVerifiedUser(appUrl);
-    await seedMaterials(user, 4);
-    const upload = await uploadToStorage(
-      user.session,
-      user.user.id,
-      'real.md',
-      'text/markdown',
-      TEXT_MATERIAL_BYTES,
-    );
+    const ids = await seedMaterials(user, 7, 150 * 1024 * 1024);
 
     const blocked = await presign(user.session, 'blocked.md');
     expect(blocked.status).toBe(403);
 
-    const removed = await user.session.delete(`/api/materials/${upload.materialId}`);
+    const removed = await user.session.delete(`/api/materials/${ids[0]}`);
     expect(removed.status).toBe(204);
 
     const allowed = await presign(user.session, 'freed.md');
@@ -107,7 +98,7 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
 
   it('applies a plan switch to the quotas immediately', async () => {
     const user = await registerVerifiedUser(appUrl);
-    await seedMaterials(user, 5);
+    await seedMaterials(user, 8, 150 * 1024 * 1024);
 
     const blocked = await presign(user.session, 'blocked.md');
     expect(blocked.status).toBe(403);
@@ -120,12 +111,14 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
     expect(Object.keys(snapshot).sort()).toEqual([
       'generations',
       'lessons',
-      'materials',
       'maxMaterialChars',
       'plan',
+      'storage',
     ]);
     expect(snapshot.plan).toBe('plus');
-    expect(snapshot.materials).toMatchObject({ used: 5, limit: 25 });
+    const storage = snapshot.storage as { used: number; limit: number };
+    expect(storage.used).toBeGreaterThan(0);
+    expect(storage.limit).toBe(5 * 1024 * 1024 * 1024);
     expect(snapshot.lessons).toMatchObject({ used: 0, limit: 7 });
     expect(snapshot.maxMaterialChars).toBe(10_000);
     expect(snapshot.generations).toMatchObject({ used: 0, limit: 7 });
@@ -144,14 +137,13 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
       'text/markdown',
       TEXT_MATERIAL_BYTES,
     );
-    // A concurrent presign (or a seeded backlog) fills every remaining slot.
-    await seedMaterials(user, 5);
+    // A concurrent presign (or a seeded backlog) fills the remaining storage.
+    await seedMaterials(user, 8, 150 * 1024 * 1024);
 
     const confirmed = await confirmMaterial(user.session, upload.materialId);
     expect(confirmed.status).toBe(403);
-    expect((confirmed.body as QuotaEnvelope).details?.reason).toBe('plan_material_limit');
+    expect((confirmed.body as QuotaEnvelope).details?.reason).toBe('plan_storage_limit');
 
-    // The losing material stays untouched in the queue state the user controls.
     const status = await materialStatus(user.session, upload.materialId);
     expect((status.body as { status: string }).status).toBe('awaiting_upload');
   });
@@ -190,29 +182,36 @@ describe('plan-based feature limits (constitution v2.3.0)', () => {
 
   it('informs first, then auto-purges dead oversized uploads on a blocked split upload', async () => {
     const user = await registerVerifiedUser(appUrl);
-    const upload = await uploadToStorage(
-      user.session,
-      user.user.id,
-      'oversized.md',
-      'text/markdown',
-      oversizedMarkdown(),
-    );
-    await confirmMaterial(user.session, upload.materialId);
-    try {
-      await runPipeline({ materialId: upload.materialId });
-    } catch {
-      // Terminal classification, asserted by the dedicated char-cap test.
-    }
-    await seedMaterials(user, 4);
+    await seedMaterials(user, 6, 150 * 1024 * 1024);
 
-    const blocked = await presign(user.session, 'split-part-1.md');
+    // A dead over-limit record (char cap) holding 150 MB of storage.
+    const failedId = new Types.ObjectId();
+    await Material.create({
+      _id: failedId,
+      userId: new Types.ObjectId(user.user.id),
+      originalFilename: 'oversized.md',
+      storageKey: `materials/${user.user.id}/${failedId.toHexString()}`,
+      declaredMime: 'text/markdown',
+      sizeBytes: 150 * 1024 * 1024,
+      status: 'failed',
+      failureCode: 'plan_char_limit',
+      scanResult: 'clean',
+      charCount: 0,
+      uploadExpiresAt: new Date(),
+      deletedAt: null,
+    });
+
+    const blocked = await user.session.post('/api/materials/presign', {
+      filename: 'split-part-1.md',
+      declaredMime: 'text/markdown',
+      sizeBytes: 150 * 1024 * 1024,
+    });
     expect(blocked.status).toBe(403);
     const body = blocked.body as QuotaEnvelope;
-    expect(body.details).toMatchObject({ reason: 'plan_material_limit', purged: 1 });
+    expect(body.details).toMatchObject({ reason: 'plan_storage_limit', purged: 1 });
     expect(body.message).toContain('removed');
 
-    // The dead over-limit record is gone; its slot is reclaimable.
-    const purged = await Material.findById(upload.materialId)
+    const purged = await Material.findById(failedId)
       .lean<{ status: string; deletedAt: Date | null }>()
       .exec();
     expect(purged?.status).toBe('deleted');

@@ -23,7 +23,7 @@ async function seedMaterials(user: RegisteredUser, count: number): Promise<void>
       originalFilename: `contract-${index}.md`,
       storageKey: `materials/${user.user.id}/${materialId.toHexString()}`,
       declaredMime: 'text/markdown',
-      sizeBytes: 100,
+      sizeBytes: 150 * 1024 * 1024,
       status: 'ready',
       scanResult: 'clean',
       charCount: 100,
@@ -52,12 +52,12 @@ describe('plan usage endpoint and quota envelope', () => {
     expect(Object.keys(body).sort()).toEqual([
       'generations',
       'lessons',
-      'materials',
       'maxMaterialChars',
       'plan',
+      'storage',
     ]);
     expect(body.plan).toBe('free');
-    expect(body.materials).toEqual({ used: 0, limit: 5 });
+    expect(body.storage).toEqual({ used: 0, limit: 1 * 1024 * 1024 * 1024 });
     expect(body.lessons).toEqual({ used: 0, limit: 3 });
     expect(body.maxMaterialChars).toBe(10_000);
     expect(body.generations).toMatchObject({ used: 0, limit: 3 });
@@ -69,7 +69,7 @@ describe('plan usage endpoint and quota envelope', () => {
 
   it('rejects quota-exceeded uploads with the plan_limit 403 envelope', async () => {
     const user = await registerVerifiedUser(appUrl);
-    await seedMaterials(user, 5);
+    await seedMaterials(user, 8);
 
     const response = await user.session.post('/api/materials/presign', {
       filename: 'blocked.md',
@@ -87,9 +87,7 @@ describe('plan usage endpoint and quota envelope', () => {
     expect(body.correlationId).toBeTruthy();
     expect(body.message).toContain('free');
     expect(body.details).toMatchObject({
-      reason: 'plan_material_limit',
-      used: 5,
-      limit: 5,
+      reason: 'plan_storage_limit',
       purged: 0,
     });
   });

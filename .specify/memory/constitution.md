@@ -47,7 +47,7 @@ The backend MUST verify the actual MIME type of uploaded files from magic bytes
 rather than trusting client-provided extensions or `Content-Type` headers. Only
 PDF, DOCX, Markdown, and plain-text files MUST be accepted unless a feature
 specification explicitly adds another type. Files MUST be rejected when larger
-than 25 MB, and rejection messages MUST state the limit.
+than 150 MB, and rejection messages MUST state the limit.
 
 Uploads MUST follow a two-step declare-then-commit flow. The presign step
 validates the declared type and size, applies quota and rate limits, and creates
@@ -95,17 +95,22 @@ the smaller cap before emitting any JSON).
 
 Account plans constrain resource use. Every user has a plan (default `free`),
 and each plan declares — as configuration, so higher tiers can be added
-without changing enforcement logic — a material storage quota, a
-per-material extracted-text character cap, a lesson storage quota, and a
-daily lesson-generation allowance derived from that lesson quota. Uploads
-MUST be rejected with 403 once the material storage quota is reached, and
-lesson generation MUST be rejected with 403 once the lesson storage quota or
-the daily allowance is reached. A material whose extracted text exceeds the
-plan's character cap MUST fail parsing with a user-visible reason rather
-than being silently truncated or generated from. Deleting a material or
+without changing enforcement logic — a per-material extracted-text
+character cap, a material storage quota measured in bytes (free 1 GiB,
+plus 5 GiB), a lesson storage quota, and a daily lesson-generation
+allowance derived from that lesson quota. Uploads MUST be rejected with
+403 once the material storage quota is reached, and lesson generation
+MUST be rejected with 403 once the lesson storage quota or the daily
+allowance is reached. A material whose extracted text exceeds the plan's
+character cap MUST fail parsing with a user-visible reason rather than
+being silently truncated or generated from. Deleting a material or
 lesson MUST free its quota, so every user can reclaim space through
 deletion. Limits apply only to new actions: records that predate a limit
-MUST NOT be purged to satisfy it.
+MUST NOT be purged to satisfy it. Since v2.10.0, material storage is
+measured in bytes (free 1 GiB / plus 5 GiB) with a 150 MB per-upload
+cap, replacing the previous material slot count; expired awaiting uploads
+are purged automatically (and audited) when a storage wall blocks a new
+upload.
 
 The daily generation allowance MUST be counted in a shared store so it holds
 across instances. It MUST reserve atomically when a generation request is
@@ -357,5 +362,5 @@ this document. A violation MUST block merge until it is resolved or formally
 waived in writing by the maintainers with a stated rationale and expiry. The
 constitution MUST be reviewed at least quarterly and after any security incident.
 
-**Version**: 2.9.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-26
+**Version**: 2.10.0 | **Ratified**: 2026-11-07 | **Last Amended**: 2026-11-26
 

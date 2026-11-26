@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Material } from '@/lib/db/models/material';
 import { Lesson } from '@/lib/db/models/lesson';
 import { Quiz } from '@/lib/db/models/quiz';
@@ -12,8 +13,12 @@ import { auditEvents } from '@/lib/logging/audit-events';
  * including awaiting_upload, failed, and quarantined — hold storage and count
  * against the plan quota; deleting reclaims the slot.
  */
-export async function countUserMaterials(userId: string): Promise<number> {
-  return Material.countDocuments({ userId, deletedAt: null }).exec();
+export async function sumUserStorageBytes(userId: string): Promise<number> {
+  const result = await Material.aggregate<{ _id: null; total: number }>([
+    { $match: { userId: new mongoose.Types.ObjectId(userId), deletedAt: null } },
+    { $group: { _id: null, total: { $sum: '$sizeBytes' } } },
+  ]).exec();
+  return result[0]?.total ?? 0;
 }
 
 export async function countUserLessons(userId: string): Promise<number> {
@@ -66,9 +71,33 @@ export async function purgeCharLimitFailures(
   return purged;
 }
 
+export async function purgeExpiredUploads(userId: string, correlationId: string): Promise<number> {
+  const doomed = await Material.find({
+    userId,
+    status: 'awaiting_upload',
+    uploadExpiresAt: { $lt: new Date() },
+    deletedAt: null,
+  })
+    .select('_id')
+    .lean<{ _id: { toHexString(): string } }[]>()
+    .exec();
+
+  let purged = 0;
+  for (const record of doomed) {
+    await deleteMaterialCascade(userId, record._id.toHexString());
+    await auditEvents.planLimitPurge({
+      userId,
+      correlationId,
+      metadata: { materialId: record._id.toHexString(), reason: 'expired_upload' },
+    });
+    purged += 1;
+  }
+  return purged;
+}
+
 export interface UsageSnapshot {
   plan: string;
-  materials: { used: number; limit: number };
+  storage: { used: number; limit: number };
   lessons: { used: number; limit: number };
   maxMaterialChars: number;
   generations: { used: number; limit: number; resetsAt: string | null };
@@ -77,14 +106,14 @@ export interface UsageSnapshot {
 /** Combined quota view for /api/me/usage and the list-page badges. */
 export async function usageSnapshot(userId: string, plan: string | null): Promise<UsageSnapshot> {
   const limits = planLimitsFor(plan);
-  const [materialsUsed, lessonsUsed, generations] = await Promise.all([
-    countUserMaterials(userId),
+  const [storageUsed, lessonsUsed, generations] = await Promise.all([
+    sumUserStorageBytes(userId),
     countUserLessons(userId),
     allowanceUsage(userId),
   ]);
   return {
     plan: plan ?? 'free',
-    materials: { used: materialsUsed, limit: limits.materials },
+    storage: { used: storageUsed, limit: limits.storageBytes },
     lessons: { used: lessonsUsed, limit: limits.lessons },
     maxMaterialChars: limits.maxMaterialChars,
     generations: {

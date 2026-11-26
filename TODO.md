@@ -717,6 +717,29 @@ fields), and a quiz call grounded in the finished lesson text.
       retake rewrite), contract suite green. E2E skipped per the
       standing preference.
 
+## Step 19 — Storage quotas measured in bytes (150 MB per upload, 1 GiB/5 GiB plans) (DONE 2026-11-26)
+
+The material "slot" count (5 free / 25 plus) is replaced by a byte quota:
+free = 1 GiB, plus = 5 GiB, with a 150 MB per-upload cap. Uploads are
+rejected with 403 (`plan_storage_limit`) once the quota is reached; deleting
+a material reclaims its bytes; expired `awaiting_upload` records are purged
+automatically (and audited) when a storage wall blocks a new upload.
+
+- [x] `MAX_UPLOAD_BYTES` 25 MB → 150 MB (`lib/db/models/material.ts`); dynamic
+      error messages across verify-object, upload route, upload form, landing
+      page.
+- [x] `PlanLimits.materials` slot count removed; `storageBytes` added (free 1
+      GiB / plus 5 GiB); `PLAN_FAILURE_CODES.materials` → `storage`.
+- [x] `sumUserStorageBytes` usage helper; presign + confirm routes enforce the
+      byte quota (concurrent-presign re-check preserved).
+- [x] `purgeExpiredUploads` added and wired into the presign block path.
+- [x] Materials page pill now shows "X.XX / Y.YY GB · plan" with amber at
+      ≥90% instead of "n/m materials".
+- [x] Constitution v2.10.0 (MINOR): storage measured in bytes, 150 MB
+      per-upload cap; slot count removed.
+- [x] Gates (isolated worktree): build ✓, unit 111/111, integration 64/64,
+      contract 49/49. E2E skipped per the standing preference.
+
 ## Dev environment notes (Windows + PowerShell, Linux + bash)
 
 Shared:

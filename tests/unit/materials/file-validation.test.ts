@@ -98,7 +98,7 @@ describe('magic-byte upload verification', () => {
 
     const oversized = Buffer.alloc(MAX_UPLOAD_BYTES + 1);
     // Skip the null-byte scan by going through the declared-size branch only.
-    expect(MAX_UPLOAD_BYTES).toBe(26_214_400);
+    expect(MAX_UPLOAD_BYTES).toBe(157_286_400);
     await expect(
       detectAndVerifyMime({ filename: 'big.txt', declaredMime: 'text/plain', buffer: oversized }),
     ).rejects.toMatchObject({ code: 'payload_too_large' });

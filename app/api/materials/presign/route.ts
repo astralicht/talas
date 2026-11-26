@@ -6,7 +6,7 @@ import { enforceUploadRateLimit } from '@/lib/security/upload-rate-limit';
 import { sanitizeFilename, presignSchema } from '@/lib/validation/materials';
 import { MaterialRepository, storageKeyFor } from '@/lib/db/repositories/material-repository';
 import { planLimitsFor, PLAN_FAILURE_CODES } from '@/lib/plans';
-import { countUserMaterials, purgeCharLimitFailures } from '@/lib/plans/usage';
+import { sumUserStorageBytes, purgeCharLimitFailures, purgeExpiredUploads } from '@/lib/plans/usage';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,27 +18,26 @@ export const POST = route(
     await enforceUploadRateLimit(user.id);
 
     const limits = planLimitsFor(user.plan);
-    const used = await countUserMaterials(user.id);
-    if (used >= limits.materials) {
-      // Quota wall (constitution v2.3.0). Uploads that failed the character cap
-      // are dead weight: the 403 informs first, then they are purged (audited),
-      // so a split-upload retry fits into the freed slots.
-      const purged = await purgeCharLimitFailures(user.id, correlationId);
-      const remaining = used - purged;
-      const message =
-        purged > 0
-          ? `Your ${user.plan} plan stores up to ${limits.materials} materials. ${purged} oversized upload${
-              purged === 1 ? '' : 's'
-            } that failed the character limit w${purged === 1 ? 'as' : 'ere'} removed to free space — ${remaining} material${
-              remaining === 1 ? '' : 's'
-            } remain${remaining === 1 ? 's' : ''}. Upload your split files again.`
-          : `Your ${user.plan} plan stores up to ${limits.materials} materials (${used} in use). Delete a material to free a slot, or upgrade your plan.`;
-      throw errors.planLimit(message, {
-        reason: PLAN_FAILURE_CODES.materials,
-        used: remaining,
-        limit: limits.materials,
-        purged,
-      });
+    const usedBytes = await sumUserStorageBytes(user.id);
+    if (usedBytes + body.sizeBytes > limits.storageBytes) {
+      const purgedExpired = await purgeExpiredUploads(user.id, correlationId);
+      const purgedFailed = await purgeCharLimitFailures(user.id, correlationId);
+      const purged = purgedExpired + purgedFailed;
+      const remainingBytes = await sumUserStorageBytes(user.id);
+      const toGB = (b: number) => (b / (1024 * 1024 * 1024)).toFixed(2);
+      if (remainingBytes + body.sizeBytes > limits.storageBytes) {
+        throw errors.planLimit(
+          purged > 0
+            ? `Your ${user.plan} plan stores up to ${toGB(limits.storageBytes)} GB of materials. ${purged} stale oversized upload${purged === 1 ? '' : 's'} w${purged === 1 ? 'as' : 'ere'} removed — ${toGB(remainingBytes)} GB in use. Try the upload again.`
+            : `Your ${user.plan} plan stores up to ${toGB(limits.storageBytes)} GB of materials (${toGB(remainingBytes)} GB in use). Delete a material to free space, or upgrade your plan.`,
+          {
+            reason: PLAN_FAILURE_CODES.storage,
+            used: remainingBytes,
+            limit: limits.storageBytes,
+            purged,
+          },
+        );
+      }
     }
 
     const filename = sanitizeFilename(body.filename);

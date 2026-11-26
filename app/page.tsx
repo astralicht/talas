@@ -12,7 +12,7 @@ const STEPS = [
   {
     icon: Upload,
     title: 'Upload your material',
-    body: 'Drop in a PDF, DOCX, Markdown, or plain-text document — up to 25 MB.',
+    body: 'Drop in a PDF, DOCX, Markdown, or plain-text document — up to 150 MB.',
     card: 'bg-accent-100 dark:bg-accent-200/10',
     iconWrap: 'bg-card',
   },

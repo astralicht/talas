@@ -31,7 +31,7 @@ export async function detectAndVerifyMime(input: VerifyObjectInput): Promise<str
     throw errors.validation(undefined, 'The uploaded file is empty.');
   }
   if (buffer.byteLength > MAX_UPLOAD_BYTES) {
-    throw errors.payloadTooLarge('Files must be 25 MB or smaller.');
+    throw errors.payloadTooLarge('Files must be 150 MB or smaller.');
   }
 
   try {

@@ -43,7 +43,7 @@ export const PUT = route(
       throw errors.validation(undefined, 'The request must carry the file body.');
     }
     if (headerLength > MAX_UPLOAD_BYTES) {
-      throw errors.payloadTooLarge('Files must be 25 MB or smaller.');
+      throw errors.payloadTooLarge('Files must be 150 MB or smaller.');
     }
     if (headerLength !== declared) {
       throw errors.validation(

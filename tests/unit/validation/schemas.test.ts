@@ -58,11 +58,11 @@ describe('shared validation schemas', () => {
 
   it('bounds presign uploads to the four allowed media types and 25 MB', () => {
     expect(
-      presignSchema.safeParse({ filename: 'a.pdf', declaredMime: 'application/pdf', sizeBytes: 26_214_400 })
+      presignSchema.safeParse({ filename: 'a.pdf', declaredMime: 'application/pdf', sizeBytes: 157_286_400 })
         .success,
     ).toBe(true);
     expect(
-      presignSchema.safeParse({ filename: 'a.pdf', declaredMime: 'application/pdf', sizeBytes: 26_214_401 })
+      presignSchema.safeParse({ filename: 'a.pdf', declaredMime: 'application/pdf', sizeBytes: 157_286_401 })
         .success,
     ).toBe(false);
     expect(

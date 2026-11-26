@@ -86,7 +86,7 @@ describe('materials endpoints contract', () => {
     const tooBig = await user.session.post('/api/materials/presign', {
       filename: 'a.pdf',
       declaredMime: 'application/pdf',
-      sizeBytes: 26_214_401,
+      sizeBytes: 157_286_401,
     });
     expect(tooBig.status).toBe(400);
 

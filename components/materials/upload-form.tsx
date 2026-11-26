@@ -12,7 +12,7 @@ const ACCEPTED_MIME_TYPES = [
   'text/plain',
 ];
 
-const MAX_SIZE_BYTES = 26_214_400;
+const MAX_SIZE_BYTES = 157_286_400;
 
 const MIME_BY_EXTENSION: Record<string, string> = {
   '.pdf': 'application/pdf',
@@ -75,13 +75,13 @@ export function UploadForm({ verified }: { verified: boolean }) {
       !declared ||
       !ACCEPTED_MIME_TYPES.includes(selected.type === '' ? declared : selected.type)
     ) {
-      setError('Use a PDF, DOCX, Markdown, or plain-text file (25 MB or smaller).');
+      setError('Use a PDF, DOCX, Markdown, or plain-text file (150 MB or smaller).');
       event.target.value = '';
       setFile(null);
       return;
     }
     if (selected.size < 1 || selected.size > MAX_SIZE_BYTES) {
-      setError('Files must be 25 MB or smaller and not empty.');
+      setError('Files must be 150 MB or smaller and not empty.');
       event.target.value = '';
       setFile(null);
       return;
@@ -201,7 +201,7 @@ export function UploadForm({ verified }: { verified: boolean }) {
           className="border-input bg-card file:bg-brand-100 file:text-brand-700 block w-full rounded-lg border px-3 py-2 text-sm file:mr-3 file:rounded-full file:border-0 file:px-3 file:py-1.5 file:font-semibold"
         />
         <p className="text-muted-foreground text-xs">
-          PDF, DOCX, Markdown, or plain text, up to 25 MB.
+          PDF, DOCX, Markdown, or plain text, up to 150 MB.
         </p>
       </div>
 

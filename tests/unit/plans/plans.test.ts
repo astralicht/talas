@@ -9,7 +9,7 @@ describe('plan configuration', () => {
 
   it('uses positive limits everywhere', () => {
     for (const [id, limits] of Object.entries(PLANS)) {
-      expect(limits.materials, id).toBeGreaterThan(0);
+      expect(limits.storageBytes, id).toBeGreaterThan(0);
       expect(limits.lessons, id).toBeGreaterThan(0);
       expect(limits.maxMaterialChars, id).toBeGreaterThan(0);
       expect(limits.dailyLessonGenerations, id).toBeGreaterThan(0);
@@ -22,7 +22,7 @@ describe('plan configuration', () => {
     for (const limits of Object.values(PLANS)) {
       expect(limits.dailyLessonGenerations).toBe(limits.lessons);
     }
-    expect(PLANS.free.materials).toBeLessThan(PLANS.plus.materials);
+    expect(PLANS.free.storageBytes).toBeLessThan(PLANS.plus.storageBytes);
     expect(PLANS.free.lessons).toBeLessThan(PLANS.plus.lessons);
   });
 
